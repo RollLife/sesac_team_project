@@ -52,6 +52,9 @@ def create_user(db: Session, user_data: dict):
 def get_user(db: Session, user_id: str):
     return db.query(models.User).filter(models.User.user_id == user_id).first()
 
+def get_users(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.User).offset(skip).limit(limit).all()
+
 def delete_user(db: Session, user_id: str):
     db_user = get_user(db, user_id)
     if db_user:
