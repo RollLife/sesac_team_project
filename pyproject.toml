@@ -1,0 +1,11 @@
+[project]
+name = "sesac-team-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "faker>=40.1.2",
+    "faker-commerce>=1.0.4",
+    "pandas>=3.0.0",
+]
