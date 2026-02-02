@@ -45,6 +45,8 @@ class ProductGenerator:
         price_max = rule.get('price_max', 100000)
         price = random.randint(price_min, price_max)
         price = (price // 100) * 100 
+        org_price = int(price * random.uniform(1.1, 1.5))
+        discount_rate = (org_price - price) / org_price
         
         return {
             "product_id": f"P{fake.unique.random_number(digits=8)}",
@@ -55,7 +57,9 @@ class ProductGenerator:
             "stock": random.randint(0, 500),
             "description": f"{brand}의 {name}입니다. 믿고 사용하세요.",
             "created_at": fake.date_this_year(),
-            "sleep": random.randint(0, 5)
+            "org_price": org_price,
+            "discount_rate": discount_rate,
+            "sleep": random.uniform(0.5, 5.0) # 지연 시간
         }
 
     def generate_batch(self, count=100):

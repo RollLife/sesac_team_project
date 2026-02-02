@@ -32,7 +32,25 @@ class OrderGenerator:
             "user_id": u_id,
             "product_id": p_id,
             "quantity": quantity,
-            "total_amount": p_price * quantity,
+        # Step 4: Calculate Amounts
+        shipping_cost = random.choice([0, 2500, 3000])
+        # Simple discount logic: maybe 0 to 10% of total price
+        discount_amount = int((p_price * quantity) * random.uniform(0, 0.1))
+        
+        # Total Amount = Product Price * Quantity + Shipping - Discount
+        total_amount = (p_price * quantity) + shipping_cost - discount_amount
+        if total_amount < 0:
+            total_amount = 0
+
+        return {
+            "order_id": str(uuid.uuid4()),
+            "created_at": datetime.now(),
+            "user_id": u_id,
+            "product_id": p_id,
+            "quantity": quantity,
+            "total_amount": total_amount,
+            "shipping_cost": shipping_cost,
+            "discount_amount": discount_amount,
             "payment_method": payment,
             "status": "Success"
             # Category and region handling might be done in DB/Seeder layer or here if data available

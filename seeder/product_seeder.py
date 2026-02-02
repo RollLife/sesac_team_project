@@ -20,6 +20,10 @@ def seed_products(db: Session, count: int = 100):
     success_count = 0
     for product_data in products_list:
         try:
+            # Remove 'sleep' field as it is not in the DB model
+            if 'sleep' in product_data:
+                del product_data['sleep']
+                
             crud.create_product(db, product_data)
             success_count += 1
         except Exception as e:
