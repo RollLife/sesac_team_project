@@ -1,5 +1,7 @@
 import sys
 import os
+import time
+import random
 
 # Ensure project root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,10 +22,12 @@ def seed_products(db: Session, count: int = 100):
     success_count = 0
     for product_data in products_list:
         try:
-            # Remove 'sleep' field as it is not in the DB model
-            if 'sleep' in product_data:
-                del product_data['sleep']
-                
+            # --- [Simulation] 서버 처리 지연 ---
+            # 주문(Order)은 결제 대기 등이 있어서 좀 더 길게(0.5~1.0초) 잡고
+            # 유저/상품은 짧게(0.05~0.2초) 잡는 디테일을 추천!
+            time.sleep(random.uniform(0.05, 0.2)) 
+            # ---------------------------------
+            
             crud.create_product(db, product_data)
             success_count += 1
         except Exception as e:

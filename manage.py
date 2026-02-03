@@ -78,4 +78,10 @@ def main():
 # python manage.py orders -n 200
 
 if __name__ == "__main__":
-    main()
+    from utils.benchmark import measure_time
+    
+    @measure_time    
+    def check_time():
+        main()
+        
+    check_time()

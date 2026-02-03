@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import random
 
 # Ensure project root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,11 @@ def seed_orders(db: Session, count: int = 100):
     
     for i, order_data in enumerate(orders_list):
         try:
+            # --- [Simulation] 서버 처리 지연 ---
+            # 주문(Order)은 결제 대기 등이 있어서 좀 더 길게(0.5~1.0초) 잡고
+            # 유저/상품은 짧게(0.05~0.2초) 잡는 디테일을 추천!
+            time.sleep(random.uniform(0.5, 1.0)) 
+            # ---------------------------------
             crud.create_order(db, order_data)
             success_count += 1
         except Exception as e:
