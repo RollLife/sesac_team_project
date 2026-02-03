@@ -1,3 +1,5 @@
 timestamp,function_name,processed_count,duration_sec,tps(records/sec)
 2026-02-03 09:48:10,check_time(no sleep),100,13.6472,0.0
 2026-02-03 09:59:57,check_time,100,110.6019,0.0
+2026-02-03 10:20:20,check_time,1000,1106.2386,0.0
+2026-02-03 10:26:40,check_time(no sleep),1000,134.1221,0.0
