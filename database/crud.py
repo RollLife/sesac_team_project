@@ -11,8 +11,6 @@ def create_product(db: Session, product_data: dict):
     db.refresh(db_product)
     return db_product
 
-    
-
 def get_product(db: Session, product_id: str):
     # Select * from product where product_id == product_id
     return db.query(models.Product).filter(models.Product.product_id == product_id).first()

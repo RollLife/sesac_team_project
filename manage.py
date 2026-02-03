@@ -2,7 +2,7 @@ import argparse
 import sys
 from database import database
 from database import init_db as db_init
-from collect import products, users, orders
+from seeder import user_seeder, product_seeder, order_seeder
 
 def main():
     parser = argparse.ArgumentParser(description="SESAC Project Data Manager")
@@ -40,23 +40,24 @@ def main():
     try:
         if args.command == "init-db":
             db_init.init_db()
+            print("Database initialized successfully.")
             
         elif args.command == "users":
-            users.create_random_users(db, args.number)
+            user_seeder.seed_users(db, args.number)
             
         elif args.command == "products":
-            products.create_random_products(db, args.number)
+            product_seeder.seed_products(db, args.number)
             
         elif args.command == "orders":
-            orders.create_random_orders(db, args.number)
+            order_seeder.seed_orders(db, args.number)
             
         elif args.command == "all":
             print("--- 1. Users ---")
-            users.create_random_users(db, args.number)
+            user_seeder.seed_users(db, args.number)
             print("\n--- 2. Products ---")
-            products.create_random_products(db, args.number)
+            product_seeder.seed_products(db, args.number)
             print("\n--- 3. Orders ---")
-            orders.create_random_orders(db, args.number)
+            order_seeder.seed_orders(db, args.number)
             
     except Exception as e:
         print(f"Error executing command: {e}")
