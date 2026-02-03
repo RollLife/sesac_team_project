@@ -26,12 +26,6 @@ class OrderGenerator:
         if u_age and u_age < 30:
              payment = random.choice(["Card", "NaverPay", "KakaoPay"])
         
-        return {
-            "order_id": str(uuid.uuid4()),
-            "created_at": datetime.now(),
-            "user_id": u_id,
-            "product_id": p_id,
-            "quantity": quantity,
         # Step 4: Calculate Amounts
         shipping_cost = random.choice([0, 2500, 3000])
         # Simple discount logic: maybe 0 to 10% of total price

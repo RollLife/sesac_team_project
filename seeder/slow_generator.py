@@ -18,14 +18,14 @@ def create_single_product_realistically():
     # 이미지 업로드하고 검수받느라 오래 걸린다고 가정
     # delay = random.uniform(0.5, 2.0) # 0.5초 ~ 2초 랜덤 지연
     
-    delay = data['sleep']
+    # delay = data['sleep']
     
-    del data['sleep']
-    time.sleep(delay) 
+    # del data['sleep']
+    # time.sleep(delay) 
     
     # 3. DB 저장
     crud.create_product(db, data) # 실제 저장은 주석처리하거나 실행
-    print(f"🐢 [완료] {data['name']} 생성 (소요시간: {delay:.2f}s)")
+    # print(f"🐢 [완료] {data['name']} 생성 (소요시간: {delay:.2f}s)")
 
 @measure_time
 def run_sequential_test(count=10):
