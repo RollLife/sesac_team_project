@@ -205,3 +205,18 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ===========================================
+# Deploy 환경 설정
+# ===========================================
+# .env 파일은 민감한 정보를 포함하므로 제외
+deploy/.env
+deploy/.env.local
+deploy/.env.*.local
+
+# .env.example은 템플릿이므로 포함
+!deploy/.env.example
+
+# Benchmark 결과 CSV 파일
+kafka_comparison_results.csv
+realtime_comparison_results.csv

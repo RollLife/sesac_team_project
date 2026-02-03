@@ -1,12 +1,33 @@
 version: '3.8'
 
+# YAML Anchors로 공통 설정 정의
+x-app-environment: &app-environment
+  DB_TYPE: ${DB_TYPE:-local}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  POSTGRES_DB: ${POSTGRES_DB:-sesac_db}
+  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka1:29092,kafka2:29093,kafka3:29094}
+  KAFKA_ENABLED: ${KAFKA_ENABLED:-true}
+
+x-app-depends-on: &app-depends-on
+  - postgres
+  - kafka1
+  - kafka2
+  - kafka3
+
+x-app-build: &app-build
+  context: ..
+  dockerfile: deploy/Dockerfile
+
 services:
   postgres:
     image: postgres:15-alpine
     container_name: local_postgres
     restart: always
     environment:
-      DB_TYPE: local
+      DB_TYPE: ${DB_TYPE:-local}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-sesac_db}
@@ -42,7 +63,7 @@ services:
 
       # KRaft 메타데이터 디렉토리
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
     ports:
       - "9092:9092"
     volumes:
@@ -50,7 +71,7 @@ services:
     command: >
       bash -c "
       if [ ! -f /var/lib/kafka/data/meta.properties ]; then
-        kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties;
+        kafka-storage format -t ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk} -c /etc/kafka/kafka.properties;
       fi;
       /etc/confluent/docker/run
       "
@@ -82,7 +103,7 @@ services:
 
       # KRaft 메타데이터 디렉토리
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
     ports:
       - "9093:9093"
     volumes:
@@ -90,7 +111,7 @@ services:
     command: >
       bash -c "
       if [ ! -f /var/lib/kafka/data/meta.properties ]; then
-        kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties;
+        kafka-storage format -t ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk} -c /etc/kafka/kafka.properties;
       fi;
       /etc/confluent/docker/run
       "
@@ -122,7 +143,7 @@ services:
 
       # KRaft 메타데이터 디렉토리
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
     ports:
       - "9094:9094"
     volumes:
@@ -130,7 +151,7 @@ services:
     command: >
       bash -c "
       if [ ! -f /var/lib/kafka/data/meta.properties ]; then
-        kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties;
+        kafka-storage format -t ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk} -c /etc/kafka/kafka.properties;
       fi;
       /etc/confluent/docker/run
       "
@@ -145,7 +166,7 @@ services:
       - kafka3
     environment:
       KAFKA_CLUSTERS_0_NAME: local-cluster
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka1:29092,kafka2:29093,kafka3:29094}
     ports:
       - "8080:8080"
 
@@ -159,7 +180,7 @@ services:
     ports:
       - "8081:8080"
     environment:
-      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_SERVER: ${POSTGRES_HOST:-postgres}
 
   # ============================================
   # Python 애플리케이션 서비스
@@ -167,32 +188,16 @@ services:
 
   # 초기 데이터 생성 (one-time job)
   initial-seeder:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: initial_seeder
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python apps/seeders/initial_seeder.py
     restart: "no"  # 한 번만 실행
 
   # 실시간 데이터 생성 (Producer)
   producer:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: realtime_producer
     depends_on:
       - postgres
@@ -200,216 +205,82 @@ services:
       - kafka2
       - kafka3
       - initial-seeder
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    environment: *app-environment
     command: python apps/seeders/realtime_generator.py
     restart: always
 
   # Consumer - Users Group (3개 인스턴스)
   user-consumer-1:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: user_consumer_1
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/user_consumer.py --id user_consumer_1
     restart: always
 
   user-consumer-2:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: user_consumer_2
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/user_consumer.py --id user_consumer_2
     restart: always
 
   user-consumer-3:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: user_consumer_3
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/user_consumer.py --id user_consumer_3
     restart: always
 
   # Consumer - Products Group (3개 인스턴스)
   product-consumer-1:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: product_consumer_1
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/product_consumer.py --id product_consumer_1
     restart: always
 
   product-consumer-2:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: product_consumer_2
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/product_consumer.py --id product_consumer_2
     restart: always
 
   product-consumer-3:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: product_consumer_3
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/product_consumer.py --id product_consumer_3
     restart: always
 
   # Consumer - Orders Group (3개 인스턴스)
   order-consumer-1:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: order_consumer_1
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/order_consumer.py --id order_consumer_1
     restart: always
 
   order-consumer-2:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: order_consumer_2
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/order_consumer.py --id order_consumer_2
     restart: always
 
   order-consumer-3:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: order_consumer_3
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
-    environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+    depends_on: *app-depends-on
+    environment: *app-environment
     command: python kafka/consumers/order_consumer.py --id order_consumer_3
     restart: always
 
@@ -417,24 +288,11 @@ services:
   # Python 개발/테스트 컨테이너
   # ============================================
   python-dev:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    build: *app-build
     container_name: python_dev
-    depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+    depends_on: *app-depends-on
     environment:
-      DB_TYPE: local
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sesac_db
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
-      KAFKA_ENABLED: "true"
+      <<: *app-environment
       KAFKA_TOPIC_USERS: users
       KAFKA_TOPIC_PRODUCTS: products
       KAFKA_TOPIC_ORDERS: orders
