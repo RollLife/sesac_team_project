@@ -1,0 +1,39 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# 데이터 파일
+*.csv
+*.log
+benchmark_results.csv
+kafka_comparison_results.csv
+
+# 문서
+*.md
+!README.md
+
+# 기타
+.env
+.DS_Store
