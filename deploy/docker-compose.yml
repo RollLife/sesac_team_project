@@ -161,6 +161,22 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres
 
+  # Redis 캐시 서버 (Aging 기법 적용)
+  redis:
+    image: redis:7-alpine
+    container_name: local_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # ============================================
   # Python 애플리케이션 서비스
   # ============================================
@@ -234,6 +250,48 @@ services:
     command: python apps/seeders/initial_seeder.py
     restart: "no"  # 한 번만 실행
 
+  # Redis 캐시 워커 (Aging 기법으로 DB → Redis 갱신)
+  cache-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: cache_worker
+    depends_on:
+      - db-init
+      - redis
+      - initial-seeder
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
+      CACHE_REFRESH_INTERVAL: 50
+      CACHE_BATCH_SIZE: 1000
+      CACHE_NEW_DATA_RATIO: 0.5
+    command: python cache/cache_worker.py
+    restart: always
+
+  # Redis 실시간 모니터링
+  redis-monitor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: redis_monitor
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_MONITOR_INTERVAL: 1
+      CACHE_REFRESH_INTERVAL: 50
+    command: python cache/redis_monitor.py
+    restart: always
+
   # 실시간 데이터 생성 (Producer)
   producer:
     build:
@@ -244,6 +302,7 @@ services:
       - db-init
       - kafka-init
       - initial-seeder
+      - redis
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -253,6 +312,9 @@ services:
       POSTGRES_PORT: 5432
       KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
       KAFKA_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
     command: python apps/seeders/realtime_generator.py
     restart: always
 
@@ -497,3 +559,4 @@ volumes:
   kafka1_data:
   kafka2_data:
   kafka3_data:
+  redis_data:
