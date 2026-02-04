@@ -59,7 +59,6 @@ class ProductGenerator:
             "created_at": fake.date_this_year(),
             "org_price": org_price,
             "discount_rate": discount_rate,
-            #"sleep": random.uniform(0.5, 5.0) # 지연 시간
         }
 
     def generate_batch(self, count=100):

@@ -54,8 +54,8 @@ class RealtimeDataGenerator:
             while self.running:
                 # 1. DB에서 유저와 상품 풀 가져오기 (역정규화 데이터 조회용)
                 try:
-                    users = db.query(models.User).limit(1000).all()
-                    products = db.query(models.Product).limit(1000).all()
+                    users = db.query(models.User).all()
+                    products = db.query(models.Product).all()
 
                     if not users or not products:
                         print("⚠️ 유저 또는 상품 데이터가 없습니다. 먼저 initial_data_seeder.py를 실행하세요.")

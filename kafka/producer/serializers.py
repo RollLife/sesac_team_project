@@ -1,6 +1,6 @@
 """Message serialization for Kafka"""
 import json
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict
 
 
@@ -15,9 +15,11 @@ def serialize_event(event_type: str, data: Dict[str, Any]) -> bytes:
     Returns:
         bytes: UTF-8로 인코딩된 JSON 바이트
     """
-    # datetime 객체를 ISO 포맷 문자열로 변환
+    # datetime/date 객체를 ISO 포맷 문자열로 변환
     def convert_datetime(obj):
         if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, date):
             return obj.isoformat()
         return obj
 
