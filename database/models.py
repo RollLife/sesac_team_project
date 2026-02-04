@@ -67,6 +67,7 @@ class Order(Base):
 
     # [분석용 역정규화 필드 (Snapshot)]
     category = Column(String(50), nullable=True, comment="상품 카테고리 (Snapshot)")
+    user_name = Column(String(100), nullable=True, comment="유저 이름 (Snapshot)")
     user_region = Column(String(100), nullable=True, comment="유저 지역 (Snapshot)")
     user_gender = Column(String(10), nullable=True, comment="유저 성별 (Snapshot)")
     user_age_group = Column(String(20), nullable=True, comment="연령대 (Snapshot)")
