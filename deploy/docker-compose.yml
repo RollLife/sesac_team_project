@@ -502,6 +502,53 @@ services:
       KAFKA_ENABLED: "true"
     command: python kafka/consumers/order_consumer.py --id order_consumer_2
     restart: always
+    
+  # ============================================  
+  # Spark Cluster (Analytics)
+  # ============================================
+  spark-master:
+      image: apache/spark:3.5.0
+      container_name: spark_master
+      # [핵심] 공식 이미지는 이 명령어를 줘야 마스터로 동작합니다.
+      command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      user: root
+      ports:
+        - "8082:8080" # Web UI
+        - "7077:7077" # RPC Port
+      volumes:
+        - ..:/app
+      # networks:
+      #   - default # (사용 중인 네트워크 이름이 있다면 변경)
+
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: spark_worker
+    # [핵심] 워커 실행 명령어를 직접 명시하고, 마스터 주소를 알려줍니다.
+    user: root
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    depends_on:
+      - spark-master
+    volumes:
+      - ..:/app
+    # networks:
+    #   - default
+
+  # ============================================
+  # Jupyter Notebook (Interactive Debugging)
+  # ============================================
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter_notebook
+    user: root # 권한 문제 방지
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - GRANT_SUDO=yes
+    ports:
+      - "8888:8888" # 웹 브라우저 접속용 포트
+    volumes:
+      - ..:/home/jovyan/work # 프로젝트 폴더를 노트북 작업 폴더로 연결
+    networks:
+      - default
 
   order-consumer-3:
     build:
