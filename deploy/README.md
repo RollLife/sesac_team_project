@@ -62,9 +62,10 @@ docker-compose -f deploy/docker-compose.yml up -d
 - kafka1, kafka2, kafka3
 - kafka-ui
 
-### 애플리케이션 (11개)
+### 애플리케이션 (12개)
 - initial-seeder (초기 데이터)
-- producer (실시간 데이터 생성)
+- producer (실시간 주문/상품 생성)
+- user-seeder (실시간 고객 생성)
 - user-consumer-1/2/3 (유저 컨슈머)
 - product-consumer-1/2/3 (상품 컨슈머)
 - order-consumer-1/2/3 (주문 컨슈머)
