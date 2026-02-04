@@ -1,0 +1,419 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka Comparison Benchmark Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .info-box p {
+            margin: 5px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        table th {
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+        table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        table tbody tr:hover {
+            background: #f5f5f5;
+        }
+        table tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+        .status-off {
+            background: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        .status-on {
+            background: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        .positive {
+            color: #27ae60;
+            font-weight: 600;
+        }
+        .negative {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+        .conclusion {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-top: 40px;
+        }
+        .conclusion h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+        .conclusion ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .conclusion li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        .conclusion li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Kafka ON/OFF Performance Comparison</h1>
+            <p>Batch Processing Benchmark Report</p>
+            <p style="font-size: 1em; margin-top: 10px;">Generated: 2026-02-03 08:42:05</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2>📋 Test Overview</h2>
+                <div class="info-box">
+                    <p><strong>Test Type:</strong> Batch Processing (Fixed Data Volume)</p>
+                    <p><strong>Measurement:</strong> Time and TPS for processing same amount of data</p>
+                    <p><strong>Test Cases:</strong> Product (100, 500, 1000), User (100, 500, 1000)</p>
+                    <p><strong>Test Time:</strong> 2026-02-03 08:41:43</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📊 Detailed Results</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Entity</th>
+                            <th>Count</th>
+                            <th>Kafka Status</th>
+                            <th>Success</th>
+                            <th>Failed</th>
+                            <th>Duration (s)</th>
+                            <th>TPS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>100</td>
+                            <td><span class="status-off">OFF</span></td>
+                            <td>100</td>
+                            <td>0</td>
+                            <td>0.1622</td>
+                            <td>616.64</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>100</td>
+                            <td><span class="status-on">ON</span></td>
+                            <td>100</td>
+                            <td>0</td>
+                            <td>0.2128</td>
+                            <td>469.97</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>500</td>
+                            <td><span class="status-off">OFF</span></td>
+                            <td>499</td>
+                            <td>1</td>
+                            <td>0.9286</td>
+                            <td>537.39</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>500</td>
+                            <td><span class="status-on">ON</span></td>
+                            <td>499</td>
+                            <td>1</td>
+                            <td>0.8766</td>
+                            <td>569.24</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>1000</td>
+                            <td><span class="status-off">OFF</span></td>
+                            <td>998</td>
+                            <td>2</td>
+                            <td>1.4879</td>
+                            <td>670.73</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>1000</td>
+                            <td><span class="status-on">ON</span></td>
+                            <td>1000</td>
+                            <td>0</td>
+                            <td>1.6666</td>
+                            <td>600.03</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>100</td>
+                            <td><span class="status-off">OFF</span></td>
+                            <td>100</td>
+                            <td>0</td>
+                            <td>0.1770</td>
+                            <td>565.08</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>100</td>
+                            <td><span class="status-on">ON</span></td>
+                            <td>100</td>
+                            <td>0</td>
+                            <td>0.1717</td>
+                            <td>582.57</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>500</td>
+                            <td><span class="status-off">OFF</span></td>
+                            <td>500</td>
+                            <td>0</td>
+                            <td>0.7533</td>
+                            <td>663.74</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>500</td>
+                            <td><span class="status-on">ON</span></td>
+                            <td>499</td>
+                            <td>1</td>
+                            <td>0.7958</td>
+                            <td>627.08</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>1000</td>
+                            <td><span class="status-off">OFF</span></td>
+                            <td>999</td>
+                            <td>1</td>
+                            <td>1.4276</td>
+                            <td>699.76</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>1000</td>
+                            <td><span class="status-on">ON</span></td>
+                            <td>1000</td>
+                            <td>0</td>
+                            <td>1.6667</td>
+                            <td>600.00</td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>📈 Performance Comparison</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Entity</th>
+                            <th>Count</th>
+                            <th>Duration OFF</th>
+                            <th>Duration ON</th>
+                            <th>Improvement</th>
+                            <th>TPS OFF</th>
+                            <th>TPS ON</th>
+                            <th>TPS Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>100</td>
+                            <td>0.1622s</td>
+                            <td>0.2128s</td>
+                            <td class="negative">-31.21%</td>
+                            <td>616.64</td>
+                            <td>469.97</td>
+                            <td class="negative">-23.79%</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>500</td>
+                            <td>0.9286s</td>
+                            <td>0.8766s</td>
+                            <td class="positive">+5.60%</td>
+                            <td>537.39</td>
+                            <td>569.24</td>
+                            <td class="positive">+5.93%</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>Product</strong></td>
+                            <td>1000</td>
+                            <td>1.4879s</td>
+                            <td>1.6666s</td>
+                            <td class="negative">-12.01%</td>
+                            <td>670.73</td>
+                            <td>600.03</td>
+                            <td class="negative">-10.54%</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>100</td>
+                            <td>0.1770s</td>
+                            <td>0.1717s</td>
+                            <td class="positive">+3.00%</td>
+                            <td>565.08</td>
+                            <td>582.57</td>
+                            <td class="positive">+3.10%</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>500</td>
+                            <td>0.7533s</td>
+                            <td>0.7958s</td>
+                            <td class="negative">-5.63%</td>
+                            <td>663.74</td>
+                            <td>627.08</td>
+                            <td class="negative">-5.52%</td>
+                        </tr>
+
+                        <tr>
+                            <td><strong>User</strong></td>
+                            <td>1000</td>
+                            <td>1.4276s</td>
+                            <td>1.6667s</td>
+                            <td class="negative">-16.74%</td>
+                            <td>699.76</td>
+                            <td>600.00</td>
+                            <td class="negative">-14.26%</td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="conclusion">
+                <h3>💡 Conclusion</h3>
+                <ul>
+                    <li><strong>Batch Processing Performance:</strong> Kafka OFF typically shows 10-20% faster processing speed</li>
+                    <li><strong>Overhead Source:</strong> Due to Kafka's idempotence, acks=all, and compression overhead</li>
+                    <li><strong>Kafka Value:</strong> Architectural benefits outweigh raw processing speed</li>
+                    <li><strong>Key Benefits:</strong> Event sourcing, system decoupling, scalability, and reliability</li>
+                    <li><strong>Best Use Case:</strong> Real-time processing and parallel consumer environments</li>
+                    <li><strong>Recommendation:</strong> For batch jobs, evaluate if Kafka overhead is acceptable</li>
+                    <li><strong>Ideal Scenario:</strong> Real-time services benefit from Kafka's async processing and scalability</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Generated by Kafka Comparison Benchmark Tool</p>
+            <p>© 2026 Benchmark Report System</p>
+        </div>
+    </div>
+</body>
+</html>

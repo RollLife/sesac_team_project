@@ -32,12 +32,15 @@ class UserConsumer:
         def handle_user_message(data: dict):
             """유저 메시지 처리 (PostgreSQL에 저장)"""
             try:
+                # 중첩된 user 데이터 추출
+                user_data = data.get('user', data)
+
                 # 1. 이미 존재하는지 확인 (중복 방지)
-                existing_user = crud.get_user(self.db, data['user_id'])
+                existing_user = crud.get_user(self.db, user_data['user_id'])
 
                 if existing_user:
                     logger.debug(
-                        f"[{self.consumer_id}] 이미 존재하는 유저: {data['user_id']}"
+                        f"[{self.consumer_id}] 이미 존재하는 유저: {user_data['user_id']}"
                     )
                     return
 
@@ -48,16 +51,16 @@ class UserConsumer:
                 crud_module.KAFKA_ENABLED = False
 
                 try:
-                    crud.create_user(self.db, data)
+                    crud.create_user(self.db, user_data)
                     logger.info(
-                        f"[{self.consumer_id}] 유저 저장 완료: {data['user_id']}"
+                        f"[{self.consumer_id}] 유저 저장 완료: {user_data['user_id']}"
                     )
                 finally:
                     crud_module.KAFKA_ENABLED = original_kafka_enabled
 
             except Exception as e:
                 logger.error(
-                    f"[{self.consumer_id}] 유저 저장 실패: {data.get('user_id', 'unknown')} - {e}"
+                    f"[{self.consumer_id}] 유저 저장 실패: {user_data.get('user_id', 'unknown') if 'user_data' in dir() else 'unknown'} - {e}"
                 )
                 self.db.rollback()
                 raise

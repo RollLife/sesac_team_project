@@ -10,6 +10,7 @@ import sys
 import time
 import random
 import threading
+import uuid
 from datetime import datetime
 
 # 프로젝트 루트를 sys.path에 추가
@@ -18,9 +19,13 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from sqlalchemy.orm import Session
-from database import crud, database, models
+from database import database, models
 from collect.product_generator import ProductGenerator
 from collect.order_generator import OrderGenerator
+
+# Kafka Producer import
+from kafka.producer import KafkaProducer
+from kafka.config import KAFKA_TOPIC_ORDERS, KAFKA_TOPIC_PRODUCTS
 
 
 class RealtimeDataGenerator:
@@ -38,15 +43,16 @@ class RealtimeDataGenerator:
         self.lock = threading.Lock()
 
     def generate_orders_continuously(self):
-        """주문 데이터를 지속적으로 생성 (2~8초 간격, 1~5건씩)"""
+        """주문 데이터를 지속적으로 생성 (2~8초 간격, 1~5건씩) - Kafka에만 발행"""
         db = database.SessionLocal()
         order_generator = OrderGenerator()
+        kafka_producer = KafkaProducer()
 
-        print("🚀 주문 데이터 생성 스레드 시작...")
+        print("🚀 주문 데이터 생성 스레드 시작 (Kafka 발행 모드)...")
 
         try:
             while self.running:
-                # 1. DB에서 유저와 상품 풀 가져오기
+                # 1. DB에서 유저와 상품 풀 가져오기 (역정규화 데이터 조회용)
                 try:
                     users = db.query(models.User).limit(1000).all()
                     products = db.query(models.Product).limit(1000).all()
@@ -64,7 +70,7 @@ class RealtimeDataGenerator:
                 # 2. 랜덤 개수 결정 (1~5건)
                 order_count = random.randint(1, 5)
 
-                # 3. 주문 생성
+                # 3. 주문 생성 후 Kafka에 발행 (DB 저장 X)
                 success_count = 0
                 failed_count = 0
 
@@ -74,7 +80,23 @@ class RealtimeDataGenerator:
                         product = random.choice(products)
                         order_data = order_generator.generate_order(user, product)
 
-                        crud.create_order(db, order_data)
+                        # order_id 생성 (UUID)
+                        order_data['order_id'] = str(uuid.uuid4())
+
+                        # 역정규화 데이터 추가
+                        order_data['category'] = product.category
+                        order_data['user_region'] = user.address.split()[0] if user.address else "Unknown"
+                        order_data['user_gender'] = user.gender
+                        order_data['user_age_group'] = f"{user.age // 10 * 10}대" if user.age else "Unknown"
+                        order_data['created_at'] = datetime.now()
+
+                        # Kafka에만 발행 (DB 저장은 Consumer가 담당)
+                        kafka_producer.send_event(
+                            topic=KAFKA_TOPIC_ORDERS,
+                            key=order_data['user_id'],
+                            data=order_data,
+                            event_type='order_created'
+                        )
                         success_count += 1
 
                         with self.lock:
@@ -84,7 +106,6 @@ class RealtimeDataGenerator:
                         failed_count += 1
                         with self.lock:
                             self.stats['orders_failed'] += 1
-                        db.rollback()
 
                 # 4. 로그 출력
                 timestamp = datetime.now().strftime("%H:%M:%S")
@@ -93,7 +114,7 @@ class RealtimeDataGenerator:
                     elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                     tps = total_orders / elapsed if elapsed > 0 else 0
 
-                print(f"[{timestamp}] 🛒 주문 생성: {success_count}/{order_count}건 성공 | "
+                print(f"[{timestamp}] 🛒 주문 발행: {success_count}/{order_count}건 성공 | "
                       f"누적: {total_orders:,}건 | TPS: {tps:.2f}")
 
                 # 5. 랜덤 대기 (2~8초)
@@ -105,15 +126,16 @@ class RealtimeDataGenerator:
             import traceback
             traceback.print_exc()
         finally:
+            kafka_producer.flush()
             db.close()
             print("🛑 주문 데이터 생성 스레드 종료")
 
     def generate_products_continuously(self):
-        """상품 데이터를 지속적으로 생성 (10~20초 간격, 100건씩)"""
-        db = database.SessionLocal()
+        """상품 데이터를 지속적으로 생성 (10~20초 간격, 100건씩) - Kafka에만 발행"""
+        kafka_producer = KafkaProducer()
         product_generator = ProductGenerator()
 
-        print("🚀 상품 데이터 생성 스레드 시작...")
+        print("🚀 상품 데이터 생성 스레드 시작 (Kafka 발행 모드)...")
 
         try:
             while self.running:
@@ -129,7 +151,16 @@ class RealtimeDataGenerator:
                         if 'sleep' in product_data:
                             del product_data['sleep']
 
-                        crud.create_product(db, product_data)
+                        # created_at 추가
+                        product_data['created_at'] = datetime.now()
+
+                        # Kafka에만 발행 (DB 저장은 Consumer가 담당)
+                        kafka_producer.send_event(
+                            topic=KAFKA_TOPIC_PRODUCTS,
+                            key=product_data['product_id'],
+                            data=product_data,
+                            event_type='product_created'
+                        )
                         success_count += 1
 
                         with self.lock:
@@ -139,7 +170,6 @@ class RealtimeDataGenerator:
                         failed_count += 1
                         with self.lock:
                             self.stats['products_failed'] += 1
-                        db.rollback()
 
                 # 2. 로그 출력
                 timestamp = datetime.now().strftime("%H:%M:%S")
@@ -148,7 +178,7 @@ class RealtimeDataGenerator:
                     elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                     tps = total_products / elapsed if elapsed > 0 else 0
 
-                print(f"[{timestamp}] 📦 상품 생성: {success_count}/100건 성공 | "
+                print(f"[{timestamp}] 📦 상품 발행: {success_count}/100건 성공 | "
                       f"누적: {total_products:,}개 | TPS: {tps:.2f}")
 
                 # 3. 랜덤 대기 (10~20초)
@@ -160,7 +190,7 @@ class RealtimeDataGenerator:
             import traceback
             traceback.print_exc()
         finally:
-            db.close()
+            kafka_producer.flush()
             print("🛑 상품 데이터 생성 스레드 종료")
 
     def print_stats_periodically(self):

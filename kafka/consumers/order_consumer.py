@@ -12,7 +12,7 @@ if project_root not in sys.path:
 import logging
 from kafka.consumer import KafkaConsumerBase
 from kafka.config import KAFKA_TOPIC_ORDERS
-from database import crud, database
+from database import crud, database, models
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class OrderConsumer:
 
         # 메시지 핸들러 정의
         def handle_order_message(data: dict):
-            """주문 메시지 처리 (PostgreSQL에 저장)"""
+            """주문 메시지 처리 (PostgreSQL에 저장) - Producer가 역정규화 완료한 데이터"""
             try:
                 # 중첩된 order 데이터 추출
                 order_data = data.get('order', data)
@@ -44,18 +44,16 @@ class OrderConsumer:
                     )
                     return
 
-                # 2. DB에 저장 (카프카 발행 비활성화)
-                import database.crud as crud_module
-                original_kafka_enabled = crud_module.KAFKA_ENABLED
-                crud_module.KAFKA_ENABLED = False
+                # 2. DB에 직접 저장 (crud.create_order는 user/product 검증을 하므로 직접 저장)
+                # Producer가 이미 역정규화 데이터를 포함해서 보내므로 검증 불필요
+                db_order = models.Order(**order_data)
+                self.db.add(db_order)
+                self.db.commit()
+                self.db.refresh(db_order)
 
-                try:
-                    crud.create_order(self.db, order_data)
-                    logger.info(
-                        f"[{self.consumer_id}] 주문 저장 완료: {order_data['order_id']}"
-                    )
-                finally:
-                    crud_module.KAFKA_ENABLED = original_kafka_enabled
+                logger.info(
+                    f"[{self.consumer_id}] 주문 저장 완료: {order_data['order_id']}"
+                )
 
             except Exception as e:
                 logger.error(

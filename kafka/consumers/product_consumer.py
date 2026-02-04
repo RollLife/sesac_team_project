@@ -12,7 +12,7 @@ if project_root not in sys.path:
 import logging
 from kafka.consumer import KafkaConsumerBase
 from kafka.config import KAFKA_TOPIC_PRODUCTS
-from database import crud, database
+from database import crud, database, models
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class ProductConsumer:
 
         # 메시지 핸들러 정의
         def handle_product_message(data: dict):
-            """상품 메시지 처리 (PostgreSQL에 저장)"""
+            """상품 메시지 처리 (PostgreSQL에 저장) - Producer가 보낸 데이터"""
             try:
                 # 중첩된 product 데이터 추출
                 product_data = data.get('product', data)
@@ -44,18 +44,15 @@ class ProductConsumer:
                     )
                     return
 
-                # 2. DB에 저장 (카프카 발행 비활성화)
-                import database.crud as crud_module
-                original_kafka_enabled = crud_module.KAFKA_ENABLED
-                crud_module.KAFKA_ENABLED = False
+                # 2. DB에 직접 저장 (Kafka 재발행 방지)
+                db_product = models.Product(**product_data)
+                self.db.add(db_product)
+                self.db.commit()
+                self.db.refresh(db_product)
 
-                try:
-                    crud.create_product(self.db, product_data)
-                    logger.info(
-                        f"[{self.consumer_id}] 상품 저장 완료: {product_data['product_id']}"
-                    )
-                finally:
-                    crud_module.KAFKA_ENABLED = original_kafka_enabled
+                logger.info(
+                    f"[{self.consumer_id}] 상품 저장 완료: {product_data['product_id']}"
+                )
 
             except Exception as e:
                 logger.error(

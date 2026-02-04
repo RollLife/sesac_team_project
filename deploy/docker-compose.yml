@@ -24,11 +24,11 @@ services:
       # KRaft 설정
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
       # 리스너 설정
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka1:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
@@ -64,11 +64,11 @@ services:
       # KRaft 설정
       KAFKA_NODE_ID: 2
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
       # 리스너 설정
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_INTERNAL://0.0.0.0:29093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9093,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9093,PLAINTEXT_INTERNAL://kafka2:29093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
@@ -104,11 +104,11 @@ services:
       # KRaft 설정
       KAFKA_NODE_ID: 3
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
       # 리스너 설정
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_INTERNAL://0.0.0.0:29094
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29094
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9094,PLAINTEXT_INTERNAL://kafka3:29094
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
@@ -165,6 +165,54 @@ services:
   # Python 애플리케이션 서비스
   # ============================================
 
+  # DB 테이블 초기화
+  db-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: db_init
+    depends_on:
+      - postgres
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    command: >
+      bash -c "
+        echo '⏳ PostgreSQL 준비 대기 중...';
+        sleep 5;
+        echo '🚀 테이블 생성 시작...';
+        python -c 'from database.init_db import init_db; init_db()';
+        echo '✅ 테이블 초기화 완료';
+      "
+    restart: "no"
+
+  # Kafka 토픽 초기화 (브로커 준비 대기 후 토픽 생성)
+  kafka-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: kafka_init
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: >
+      bash -c "
+        echo '⏳ Kafka 브로커 준비 대기 중...';
+        sleep 15;
+        echo '🚀 토픽 생성 시작...';
+        python kafka/admin/setup_topics.py;
+        echo '✅ 토픽 초기화 완료';
+      "
+    restart: "no"
+
   # 초기 데이터 생성 (one-time job)
   initial-seeder:
     build:
@@ -172,10 +220,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: initial_seeder
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -195,10 +241,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: realtime_producer
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
       - initial-seeder
     environment:
       DB_TYPE: local
@@ -219,10 +263,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_consumer_1
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -241,10 +283,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_consumer_2
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -263,10 +303,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_consumer_3
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -286,10 +324,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: product_consumer_1
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -308,10 +344,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: product_consumer_2
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -330,10 +364,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: product_consumer_3
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -353,10 +385,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: order_consumer_1
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -375,10 +405,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: order_consumer_2
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -397,10 +425,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: order_consumer_3
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -422,10 +448,8 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: python_dev
     depends_on:
-      - postgres
-      - kafka1
-      - kafka2
-      - kafka3
+      - db-init
+      - kafka-init
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
