@@ -49,26 +49,38 @@ class RealtimeDataGenerator:
         kafka_producer = KafkaProducer()
 
         print("🚀 주문 데이터 생성 스레드 시작 (Kafka 발행 모드)...")
+        
+        # [최적화 1] DB 조회를 루프 밖으로 뺌 (캐싱)
+        # 데이터가 너무 많으면 .limit(1000) 등으로 제한하세요.
+        try:
+            print("⏳ 유저/상품 데이터 캐싱 중...")
+            users = db.query(models.User).all()
+            products = db.query(models.Product).all()
+            
+            if not users or not products:
+                print("⚠️ 데이터 없음. 시드 데이터부터 넣으세요.")
+                return
+            print(f"✅ 캐싱 완료: 유저 {len(users)}명, 상품 {len(products)}개")
+            
+        except Exception as e:
+            print(f"❌ 초기 DB 로드 실패: {e}")
+            return
+        
 
         try:
             while self.running:
-                # 1. DB에서 유저와 상품 풀 가져오기 (역정규화 데이터 조회용)
-                try:
-                    users = db.query(models.User).all()
-                    products = db.query(models.Product).all()
-
-                    if not users or not products:
-                        print("⚠️ 유저 또는 상품 데이터가 없습니다. 먼저 initial_data_seeder.py를 실행하세요.")
-                        time.sleep(5)
-                        continue
-
-                except Exception as e:
-                    print(f"❌ DB 조회 실패: {e}")
-                    time.sleep(5)
-                    continue
-
                 # 2. 랜덤 개수 결정 (1~5건)
-                order_count = random.randint(1, 5)
+                # 10% 확률로 '피크 타임' 발생 (주문량 5배 폭증)
+                is_peak_time = random.random() < 0.1 
+
+                if is_peak_time:
+                    print("🔥 핫딜 타임! 주문 폭주! 🔥")
+                    order_count = random.randint(100, 200) # 갑자기 200건
+                    sleep_time = 0.05 # 쉼 없이 쏨
+                else:
+                    # 평소
+                    order_count = random.randint(10, 50)
+                    sleep_time = random.uniform(0.2, 0.8)
 
                 # 3. 주문 생성 후 Kafka에 발행 (DB 저장 X)
                 success_count = 0
@@ -118,8 +130,7 @@ class RealtimeDataGenerator:
                       f"누적: {total_orders:,}건 | TPS: {tps:.2f}")
 
                 # 5. 랜덤 대기 (2~8초)
-                wait_time = random.uniform(2, 8)
-                time.sleep(wait_time)
+                time.sleep(sleep_time)
 
         except Exception as e:
             print(f"❌ 주문 생성 스레드 오류: {e}")
