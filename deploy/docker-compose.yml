@@ -275,7 +275,7 @@ services:
       POSTGRES_PORT: 5432
       KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
       KAFKA_ENABLED: "true"
-    command: python apps/seeders/seeder_user.py --batch-size 10 --interval 10
+    command: python apps/seeders/realtime_generator_user.py --batch-size 10 --interval 10
     restart: always
 
   # Consumer - Users Group (3개 인스턴스)
