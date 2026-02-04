@@ -3,8 +3,24 @@ import uuid
 from datetime import datetime
 
 class OrderGenerator:
+    # 한국은행 2024-2025 통계 기반 확률 매핑 (단위: %)
+    PAYMENT_STATS = {
+        "1020": {"methods": ["Card", "NaverPay", "KakaoPay", "Bank"], "weights": [45, 25, 20, 10]},
+        "30s":  {"methods": ["Card", "NaverPay", "KakaoPay", "Bank"], "weights": [50, 20, 20, 10]},
+        "40s":  {"methods": ["Card", "NaverPay", "KakaoPay", "Bank"], "weights": [65, 10, 15, 10]},
+        "50plus": {"methods": ["Card", "Bank", "NaverPay", "KakaoPay"], "weights": [75, 15, 5, 5]}
+    }
+
     def __init__(self):
         pass
+
+    def _get_stat_group(self, age):
+        """연령에 따른 통계 그룹 반환"""
+        if not age: return "40s" # 기본값
+        if age < 30: return "1020"
+        if age < 40: return "30s"
+        if age < 50: return "40s"
+        return "50plus"
 
     def generate_order(self, user, product):
         """
@@ -22,10 +38,10 @@ class OrderGenerator:
         # Step 2: Determine Quantity
         quantity = random.choices([1, 2, 3, 4, 5], weights=[80, 10, 5, 3, 2], k=1)[0]
         
-        # Step 3: Payment Method Logic
-        payment = random.choice(["Card", "Bank", "Pay"])
-        if u_age and u_age < 30:
-             payment = random.choice(["Card", "NaverPay", "KakaoPay"])
+        # Step 3: Payment Method Logic (통계 기반 로직으로 교체)
+        group_key = self._get_stat_group(u_age)
+        stat = self.PAYMENT_STATS[group_key]
+        payment = random.choices(stat["methods"], weights=stat["weights"], k=1)[0]
         
         # Step 4: Calculate Amounts
         shipping_cost = random.choice([0, 2500, 3000])
@@ -49,8 +65,6 @@ class OrderGenerator:
             "discount_amount": discount_amount,
             "payment_method": payment,
             "status": "Success"
-            # Category and region handling might be done in DB/Seeder layer or here if data available
-            # Current logic in crud handles destructuring/denormalization
         }
 
     def generate_batch(self, users, products, count=100):

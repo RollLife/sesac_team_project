@@ -19,6 +19,12 @@ class Product(Base):
     
     brand = Column(String(100), nullable=True, index=True, comment="브랜드") # 브랜드별 분석용 인덱스
     stock = Column(Integer, default=0, comment="재고")
+    
+    # 평점/리뷰 분석용
+    rating = Column(Float, nullable=True, comment="평점")
+    review_count = Column(Integer, default=0, comment="리뷰 수")
+    is_best = Column(String(1), default="N", comment="베스트 상품 여부")
+    
     created_at = Column(DateTime, default=datetime.now, comment="등록일")
 
     orders = relationship("Order", back_populates="product")
@@ -40,6 +46,12 @@ class User(Base):
     
     email = Column(String(100), nullable=True, comment="이메일")
     grade = Column(String(20), nullable=True, comment="멤버십 등급")
+    
+    # 유저 활동 분석용
+    status = Column(String(20), default="ACTIVE", comment="활동/휴면 상태")
+    last_login_at = Column(DateTime, nullable=True, comment="마지막 로그인 일시")
+    marketing_agree = Column(String(5), default="false", comment="마케팅 동의 여부")
+    
     created_at = Column(DateTime, default=datetime.now, comment="가입일")
 
     orders = relationship("Order", back_populates="user")

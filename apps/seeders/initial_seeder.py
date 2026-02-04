@@ -47,10 +47,23 @@ class InitialDataSeeder:
             batch_success = 0
             for user_data in users_list:
                 try:
+                    # 타입 변환: marketing_agree (Boolean → String)
+                    if 'marketing_agree' in user_data:
+                        user_data['marketing_agree'] = str(user_data['marketing_agree']).lower()
+                    # 타입 변환: last_login_at (문자열 → datetime)
+                    if 'last_login_at' in user_data and isinstance(user_data['last_login_at'], str):
+                        from datetime import datetime as dt
+                        user_data['last_login_at'] = dt.fromisoformat(user_data['last_login_at'])
+                    # 타입 변환: created_at (문자열 → datetime)
+                    if 'created_at' in user_data and isinstance(user_data['created_at'], str):
+                        from datetime import datetime as dt
+                        user_data['created_at'] = dt.fromisoformat(user_data['created_at'])
                     crud.create_user(self.db, user_data)
                     batch_success += 1
                     total_success += 1
                 except Exception as e:
+                    if total_failed == 0:  # 첫 번째 에러만 출력
+                        print(f"   ❌ 첫 번째 에러: {e}")
                     total_failed += 1
                     self.db.rollback()
 
@@ -100,14 +113,16 @@ class InitialDataSeeder:
             batch_success = 0
             for product_data in products_list:
                 try:
-                    # sleep 필드 제거 (DB 모델에 없음)
-                    if 'sleep' in product_data:
-                        del product_data['sleep']
-
+                    # 타입 변환: created_at (문자열 → datetime)
+                    if 'created_at' in product_data and isinstance(product_data['created_at'], str):
+                        from datetime import datetime as dt
+                        product_data['created_at'] = dt.fromisoformat(product_data['created_at'])
                     crud.create_product(self.db, product_data)
                     batch_success += 1
                     total_success += 1
                 except Exception as e:
+                    if total_failed == 0:  # 첫 번째 에러만 출력
+                        print(f"   ❌ 첫 번째 에러: {e}")
                     total_failed += 1
                     self.db.rollback()
 

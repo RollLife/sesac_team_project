@@ -6,10 +6,16 @@
 
 ## 서비스 구성
 
-### 인프라 (5개)
+### 인프라 (7개)
 - `postgres`: PostgreSQL 데이터베이스
 - `kafka1`, `kafka2`, `kafka3`: 카프카 클러스터 (3 브로커)
 - `kafka-ui`: 카프카 모니터링 UI
+- `grafana`: 데이터 시각화 대시보드
+- `adminer`: PostgreSQL 관리 도구
+
+### 초기화 서비스 (2개)
+- `db-init`: 데이터베이스 테이블 초기화 (one-time job)
+- `kafka-init`: 카프카 토픽 생성 (one-time job)
 
 ### 애플리케이션 (11개)
 - `initial-seeder`: 초기 데이터 생성 (one-time job)
@@ -18,7 +24,7 @@
 - `product-consumer-1/2/3`: 상품 토픽 컨슈머 (3개)
 - `order-consumer-1/2/3`: 주문 토픽 컨슈머 (3개)
 
-**총 16개 컨테이너**
+**총 20개 컨테이너**
 
 ## 빠른 시작
 
@@ -35,32 +41,19 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-### 2. 토픽 생성
-
-```bash
-# 카프카 토픽 생성 (컨테이너 내부에서)
-docker-compose exec producer python kafka/admin/setup_topics.py
-```
-
-### 3. 초기 데이터 생성
-
-```bash
-# initial-seeder 서비스는 프로파일로 분리되어 있음
-docker-compose --profile seeder up initial-seeder
-
-# 또는 직접 실행
-docker-compose run --rm initial-seeder
-```
-
-### 4. 서비스 확인
+### 2. 서비스 확인
 
 ```bash
 # 실행 중인 컨테이너 확인
 docker-compose ps
-
-# Kafka UI
-http://localhost:8080
 ```
+
+**웹 UI 접속:**
+| 서비스 | URL | 비고 |
+|--------|-----|------|
+| Kafka UI | http://localhost:8080 | 카프카 모니터링 |
+| Grafana | http://localhost:3000 | admin / admin |
+| Adminer | http://localhost:8081 | DB 관리 |
 
 ## 상세 실행 가이드
 
@@ -68,29 +61,24 @@ http://localhost:8080
 
 #### 1단계: 인프라만 시작
 ```bash
-# PostgreSQL + Kafka 클러스터만 시작
-docker-compose up -d postgres kafka1 kafka2 kafka3 kafka-ui
+# PostgreSQL + Kafka 클러스터 + 모니터링 시작
+docker-compose up -d postgres kafka1 kafka2 kafka3 kafka-ui grafana adminer
 
 # 상태 확인
 docker-compose ps
 ```
 
-#### 2단계: 토픽 생성
+#### 2단계: 초기화 (자동 실행)
 ```bash
-# producer 이미지 빌드 (토픽 생성 스크립트 포함)
-docker-compose build producer
-
-# 토픽 생성 (일회성 실행)
-docker-compose run --rm producer python kafka/admin/setup_topics.py
+# db-init과 kafka-init은 depends_on으로 자동 실행됨
+# 수동 실행 필요시:
+docker-compose up db-init kafka-init
 ```
 
 #### 3단계: 초기 데이터 생성
 ```bash
 # 초기 데이터 생성 (10,000 유저 + 20,000 상품)
-docker-compose run --rm producer python apps/seeders/initial_seeder.py
-
-# 또는 프로파일 사용
-docker-compose --profile seeder up initial-seeder
+docker-compose up initial-seeder
 ```
 
 #### 4단계: 컨슈머 시작
@@ -174,6 +162,22 @@ docker-compose exec kafka1 kafka-consumer-groups \
   --describe --group users_group
 ```
 
+### Grafana 대시보드
+
+```bash
+# Grafana 접속
+http://localhost:3000
+
+# 로그인: admin / admin
+
+# 데이터소스 추가
+# - Type: PostgreSQL
+# - Host: postgres:5432
+# - Database: sesac_db
+# - User: postgres
+# - Password: password
+```
+
 ## 환경변수 설정
 
 ### 방법 1: docker-compose.yml 수정
@@ -237,8 +241,8 @@ docker-compose exec postgres psql -U postgres -d sesac_db -c "SELECT COUNT(*) FR
 docker-compose exec postgres psql -U postgres -c "DROP DATABASE sesac_db;"
 docker-compose exec postgres psql -U postgres -c "CREATE DATABASE sesac_db;"
 
-# 스키마 재생성
-docker-compose run --rm producer python -c "from database.database import Base, engine; Base.metadata.create_all(bind=engine)"
+# 스키마 재생성 (db-init 서비스 사용)
+docker-compose up db-init
 ```
 
 ## 서비스 관리
@@ -310,7 +314,7 @@ docker-compose restart kafka1 kafka2 kafka3
 
 # 네트워크 확인
 docker network ls
-docker network inspect 20260203__default
+docker network inspect deploy_default
 ```
 
 ### DB 연결 실패
@@ -339,63 +343,25 @@ docker-compose down -v
 docker builder prune
 ```
 
-## 성능 최적화
-
-### 리소스 제한
-
-```yaml
-# docker-compose.yml에 추가
-services:
-  producer:
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
-```
-
-### 헬스체크 추가
-
-```yaml
-services:
-  producer:
-    healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-```
-
 ## 전체 플로우
 
 ```bash
 # 1. 이미지 빌드
 docker-compose build
 
-# 2. 인프라 시작
-docker-compose up -d postgres kafka1 kafka2 kafka3 kafka-ui
+# 2. 전체 서비스 시작 (인프라 + 초기화 + 앱)
+docker-compose up -d
 
-# 3. 카프카 초기화 (토픽 생성)
-docker-compose run --rm producer python kafka/admin/setup_topics.py
+# 3. 초기 데이터 생성 (필요시)
+docker-compose up initial-seeder
 
-# 4. 초기 데이터 생성
-docker-compose run --rm producer python apps/seeders/initial_seeder.py
-
-# 5. 컨슈머 시작 (9개)
-docker-compose up -d \
-  user-consumer-1 user-consumer-2 user-consumer-3 \
-  product-consumer-1 product-consumer-2 product-consumer-3 \
-  order-consumer-1 order-consumer-2 order-consumer-3
-
-# 6. Producer 시작
-docker-compose up -d producer
-
-# 7. 모니터링
+# 4. 모니터링
 docker-compose logs -f
+
+# 5. 웹 UI 접속
+# - Kafka UI: http://localhost:8080
+# - Grafana: http://localhost:3000
+# - Adminer: http://localhost:8081
 ```
 
 ## 참고 사항
@@ -406,7 +372,7 @@ docker-compose logs -f
 해결 방법:
 1. 헬스체크 사용
 2. 애플리케이션에서 재시도 로직 구현
-3. `wait-for-it.sh` 같은 스크립트 사용
+3. 초기화 서비스 분리 (db-init, kafka-init)
 
 ### 네트워크
 모든 컨테이너는 같은 Docker 네트워크에 있어 서비스 이름으로 통신 가능:
@@ -418,6 +384,7 @@ docker-compose logs -f
 데이터 영구 저장을 위한 볼륨:
 - `postgres_data`: PostgreSQL 데이터
 - `kafka1_data`, `kafka2_data`, `kafka3_data`: 카프카 데이터
+- `grafana_data`: Grafana 대시보드 설정
 
 ## 추가 명령어
 

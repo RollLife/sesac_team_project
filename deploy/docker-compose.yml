@@ -149,6 +149,21 @@ services:
     ports:
       - "8080:8080"
 
+  # Grafana 시각화 서비스
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: local_grafana
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+
   # PostgreSQL 관리 도구
   adminer:
     image: adminer:latest
@@ -607,3 +622,4 @@ volumes:
   kafka2_data:
   kafka3_data:
   redis_data:
+  grafana_data:
