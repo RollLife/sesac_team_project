@@ -44,10 +44,22 @@ class ProductGenerator:
         except KeyError:
             name = template
             
-        # 접두사 추가 (30% 확률)
-        if random.random() < 0.3:
-            prefix = random.choice(self.common_prefixes)
-            name = f"{prefix} {name}"
+        # 접두사 추가 (30% 확률) - 특정 카테고리 제외
+        # 여행/티켓/스포츠 카테고리: prefix 전체 제외
+        no_prefix_categories = ["항공", "숙박", "티켓/패스", "골프", "캠핑"]
+        # 가전/IT: [1+1] 제외 (냉장고 1+1 등 이상함)
+        limited_prefix_categories = ["생활가전", "IT/게이밍"]
+        excluded_prefixes_for_limited = ["[1+1]"]
+        
+        if category not in no_prefix_categories and random.random() < 0.3:
+            if category in limited_prefix_categories:
+                valid_prefixes = [p for p in self.common_prefixes if p not in excluded_prefixes_for_limited]
+            else:
+                valid_prefixes = self.common_prefixes
+            
+            if valid_prefixes:
+                prefix = random.choice(valid_prefixes)
+                name = f"{prefix} {name}"
             
         return name, context.get('brand', 'Unknown')
 
