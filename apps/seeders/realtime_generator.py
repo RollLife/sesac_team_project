@@ -78,14 +78,7 @@ class RealtimeDataGenerator:
             self.scenario_start_time = time.time()
             self.scenario_duration = duration_min * 60  # → 초
 
-        # 적용 안내
-        gw = config.get('gender_weights', {})
-        ov = config['order_volume']
-        top_cats = sorted(config.get('category_weights', {}).items(),
-                          key=lambda x: x[1], reverse=True)[:3]
-        print(f"\n🔄 [{number}] {config['description']} 적용! (⏱️ ~{duration_min}분)")
-        print(f"   주문량: {ov['min']}~{ov['max']}건/배치 | 성별: M={gw.get('M',50)}% F={gw.get('F',50)}%")
-        print(f"   인기 카테고리: {', '.join(f'{c}({w}%)' for c, w in top_cats)}\n")
+        print(f"\n🔄 시나리오 {number} ({config['description']}) 적용됨 (⏱️ ~{duration_min}분)\n")
 
     def _revert_to_baseline(self):
         """기본 패턴으로 복귀"""
@@ -409,36 +402,30 @@ class RealtimeDataGenerator:
         except Exception as e:
             print(f"❌ 통계 출력 스레드 오류: {e}")
 
-    def scenario_input_loop(self):
-        """사용자로부터 실시간 시나리오 번호 입력을 받는 스레드"""
-        print("\n💡 실행 중 시나리오 번호를 입력하면 즉시 전환됩니다.")
-        print("   menu: 목록 보기 | 0: 기본 패턴으로 복귀\n")
+    def poll_redis_scenario(self):
+        """Redis 키(scenario:current)를 폴링하여 시나리오를 전환하는 스레드"""
+        redis_client = get_redis_client()
+        last_value = None
+
+        print("📡 Redis 시나리오 폴링 시작 (scenario:current 키 감시)")
 
         while self.running:
             try:
-                raw = input("시나리오를 입력하세요: ").strip()
-                if not raw:
-                    continue
-
-                if raw.lower() == "menu":
-                    self.scenario_engine.print_menu()
-                    continue
-
-                try:
-                    num = int(raw)
-                except ValueError:
-                    print("⚠️ 시나리오 번호(숫자)를 입력해주세요. (menu: 목록 보기)")
-                    continue
-
-                if num == 0:
-                    self._revert_to_baseline()
-                else:
-                    self._apply_scenario(num)
-
-            except EOFError:
-                break
-            except Exception as e:
-                print(f"⚠️ 시나리오 입력 오류: {e}")
+                if redis_client.is_connected() and redis_client.client:
+                    val = redis_client.client.get('scenario:current')
+                    if val is not None and val != last_value:
+                        last_value = val
+                        try:
+                            num = int(val)
+                        except ValueError:
+                            continue
+                        if num == 0:
+                            self._revert_to_baseline()
+                        else:
+                            self._apply_scenario(num)
+            except Exception:
+                pass
+            time.sleep(2)
 
     def start(self):
         """실시간 데이터 생성 시작"""
@@ -452,22 +439,8 @@ class RealtimeDataGenerator:
         if self.initial_scenario_number:
             self._apply_scenario(self.initial_scenario_number)
         else:
-            self.scenario_engine.print_menu()
-            print(f"\n   0 = 기본 패턴 (시나리오 없이 현실적 분포로 시작)")
-            print()
-            while True:
-                try:
-                    raw = input("📝 시나리오를 입력하세요 (기본=0): ").strip()
-                    num = int(raw) if raw else 0
-                    if num == 0:
-                        print("\n✅ 기본 패턴 (현실적 분포)으로 시작합니다.\n")
-                    else:
-                        self._apply_scenario(num)
-                    break
-                except ValueError:
-                    print("⚠️ 숫자를 입력해주세요.")
-                except EOFError:
-                    break
+            print("✅ 기본 패턴 (현실적 분포)으로 시작합니다.")
+            print("💡 시나리오 전환: scenario_changer.py 실행\n")
 
         print("📋 생성 규칙:")
         print("  - 🛒 주문: 시나리오 가중치 + 시간대별 보정 (Redis 캐시에서 유저/상품 조회)")
@@ -483,7 +456,7 @@ class RealtimeDataGenerator:
         order_thread = threading.Thread(target=self.generate_orders_continuously, daemon=True)
         product_thread = threading.Thread(target=self.generate_products_continuously, daemon=True)
         stats_thread = threading.Thread(target=self.print_stats_periodically, daemon=True)
-        scenario_thread = threading.Thread(target=self.scenario_input_loop, daemon=True)
+        scenario_thread = threading.Thread(target=self.poll_redis_scenario, daemon=True)
 
         order_thread.start()
         product_thread.start()
