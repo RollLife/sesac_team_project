@@ -96,6 +96,9 @@ class ProductGenerator:
             "created_at": fake.date_this_year().isoformat(),
             "org_price": org_price,
             "discount_rate": discount_rate,
+            "rating": rating,
+            "review_count": review_count,
+            "is_best": "Y" if review_count > 1000 and rating > 4.5 else "N"
         }
 
     def generate_batch(self, count=100):
