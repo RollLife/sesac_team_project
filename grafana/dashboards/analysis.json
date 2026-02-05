@@ -78,7 +78,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "locale"
         },
         "overrides": []
       },
@@ -109,7 +110,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- 시간대별 주문 추세 (5분 기준)\r\nSELECT\r\n  date_trunc('minute', created_at) - \r\n    (EXTRACT(minute FROM created_at)::int % 5) * INTERVAL '1 minute' as time,\r\n  count(*) as value,\r\n  '주문 건수' as metric\r\nFROM orders\r\nWHERE created_at >= NOW() - INTERVAL '1 hour'\r\nGROUP BY 1\r\nORDER BY 1;",
+          "rawSql": "-- 시간대별 주문 추세 (15분 기준)\r\nSELECT\r\n  date_trunc('minute', created_at) - \r\n    (EXTRACT(minute FROM created_at)::int % 15) * INTERVAL '1 minute' as time,\r\n  count(*) as value,\r\n  '주문 건수' as metric\r\nFROM orders\r\nWHERE created_at >= $__timeFrom()\r\nGROUP BY 1\r\nORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -130,7 +131,7 @@
           }
         }
       ],
-      "title": "시간대별 주문 추세 (5분 기준)",
+      "title": "시간대별 주문 추세 (15분 기준)",
       "type": "timeseries"
     },
     {
@@ -1013,5 +1014,5 @@
   "timezone": "browser",
   "title": "Analysis",
   "uid": "adbzt8123213216",
-  "version": 3
+  "version": 4
 }

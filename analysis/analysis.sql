@@ -19,14 +19,14 @@ WHERE created_at >= $__timeFrom()
 GROUP BY payment_method;
 
 
--- 시간대별 주문 추세 (5분 기준)
+-- 시간대별 주문 추세 (15분 기준)
 SELECT
   date_trunc('minute', created_at) - 
-    (EXTRACT(minute FROM created_at)::int % 5) * INTERVAL '1 minute' as time,
+    (EXTRACT(minute FROM created_at)::int % 15) * INTERVAL '1 minute' as time,
   count(*) as value,
   '주문 건수' as metric
 FROM orders
-WHERE created_at >= NOW() - INTERVAL '1 hour'
+WHERE created_at >= $__timeFrom()
 GROUP BY 1
 ORDER BY 1;
 
