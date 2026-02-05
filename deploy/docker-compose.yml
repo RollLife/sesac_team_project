@@ -164,6 +164,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=frser-sqlite-datasource
+      - GF_AUTH_ANONYMOUS_ENABLED=true        # 익명 로그인 허용
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin      # 들어오자마자 '관리자(Admin)' 권한 주기
     volumes:
       # 1. (기존) 그라파나 데이터 저장소 (사용자 비번 등 저장)
       - grafana_data:/var/lib/grafana

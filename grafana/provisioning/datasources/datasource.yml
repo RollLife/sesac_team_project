@@ -1,7 +1,7 @@
 apiVersion: 1
 
 datasources:
-  - name: SESAC_DB          # Grafana에서 보일 이름 (마음대로 변경 가능)
+  - name: KoKoA Shopping          # Grafana에서 보일 이름 (마음대로 변경 가능)
     type: postgres
     uid: sesac_postgres_uid # [중요] 대시보드 JSON과 연결되는 고유 ID. (아까 파이썬 스크립트에서 쓴 것과 맞춰주세요!)
     access: proxy
