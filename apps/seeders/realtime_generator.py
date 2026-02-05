@@ -86,8 +86,8 @@ class RealtimeDataGenerator:
                     continue
 
                 # 2. 랜덤 개수 결정 (1~5건)
-                # 10% 확률로 '피크 타임' 발생 (주문량 5배 폭증)
-                is_peak_time = random.random() < 0.1 
+                # 2% 확률로 '피크 타임' 발생 (주문량 5배 폭증)
+                is_peak_time = random.random() <= 0.02 
 
                 if is_peak_time:
                     print("🔥 핫딜 타임! 주문 폭주! 🔥")
