@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import uuid
 from faker import Faker
 
 fake = Faker('ko_KR')
@@ -72,6 +73,7 @@ class ProductGenerator:
         rule = self.rules[category_name]
         
         name, brand = self.generate_name(category_name)
+
         
         # 가격 결정 로직 (브랜드 등급 반영)
         # JSON에는 없지만 로직을 위해 코드 내에 유지
@@ -98,7 +100,7 @@ class ProductGenerator:
         review_count = random.randint(50, 2500) if brand in premium_brands else random.randint(0, 500)
 
         return {
-            "product_id": f"P{fake.unique.random_number(digits=8)}",
+            "product_id": f"P{uuid.uuid4().hex[:8].upper()}",
             "name": name,
             "category": category_name,
             "price": price,
