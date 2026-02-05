@@ -161,8 +161,10 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource
     volumes:
       - grafana_data:/var/lib/grafana
+      - ../apps/seeders/history_data.db:/var/lib/grafana/history_data.db:ro
 
   # PostgreSQL 관리 도구
   adminer:
