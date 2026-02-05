@@ -4,7 +4,7 @@
   "common_suffixes": ["무료배송", "당일출고", "카드10%할인", "사은품증정", "익일배송", "최대혜택", "정품보장", "리뷰약속시사은품"],
   "common_adjectives": ["2025년형", "인기", "베스트셀러", "한정판", "MD추천", "SNS화제", "품절임박", "스테디셀러"],
   "categories": {
-    "패션_SS(봄여름)": {
+    "SS(봄여름)": {
       "price_min": 15000,
       "price_max": 150000,
       "templates": ["{brand} {season} {adj} {noun} {color} {suffix}",
@@ -21,7 +21,7 @@
         "suffix": ["무료배송", "무료반품", "당일출고"]
       }
     },
-    "패션_FW(가을겨울)": {
+    "FW(가을겨울)": {
       "price_min": 30000,
       "price_max": 800000,
       "templates": ["{brand} {season} {adj} {noun} {color} {suffix}",
@@ -38,7 +38,7 @@
         "suffix": ["무료배송", "당일출고", "옷걸이증정"]
       }
     },
-    "뷰티_스킨케어": {
+    "스킨케어": {
       "price_min": 10000,
       "price_max": 150000,
       "templates": ["{brand} {adj} {noun} {volume} {suffix}",
@@ -54,7 +54,7 @@
         "suffix": ["화장솜증정", "무료배송", "체험분증정"]
       }
     },
-    "뷰티_기능성(안티에이징)": {
+    "기능성(안티에이징)": {
       "price_min": 50000,
       "price_max": 500000,
       "templates": ["{brand} {line} {adj} {noun} {volume} {suffix}",
@@ -71,7 +71,7 @@
         "suffix": ["쇼핑백증정", "정품보장", "샘플5종증정"]
       }
     },
-    "식품_신선(과일/채소)": {
+    "신선(과일/채소)": {
       "price_min": 10000,
       "price_max": 80000,
       "templates": ["{location} {adj} {noun} {weight} {suffix}",
@@ -85,7 +85,7 @@
         "suffix": ["무료배송", "신선보장", "터지면환불"]
       }
     },
-    "식품_육류/가공": {
+    "육류/가공": {
       "price_min": 20000,
       "price_max": 200000,
       "templates": ["{brand} {adj} {noun} {weight} {suffix}",
@@ -101,7 +101,7 @@
         "suffix": ["아이스박스포장", "소스증정", "당일발송"]
       }
     },
-    "가전_생활(백색가전)": {
+    "생활가전": {
       "price_min": 500000,
       "price_max": 5000000,
       "templates": ["{brand} {year}년형 {adj} {noun} ({model}) {suffix}",
@@ -117,7 +117,7 @@
         "suffix": ["방문설치", "폐가전수거", "공식인증점", "무상AS 3년"]
       }
     },
-    "가전_IT/게이밍": {
+    "IT/게이밍": {
       "price_min": 100000,
       "price_max": 3000000,
       "templates": ["{brand} {spec} {noun} {model} {suffix}",
@@ -134,7 +134,7 @@
         "suffix": ["로켓배송", "파우치증정", "정품등록"]
       }
     },
-    "생활_세제/위생": {
+    "세제/위생": {
       "price_min": 5000,
       "price_max": 50000,
       "templates": ["{brand} {adj} {noun} {capacity} x {count}개 {suffix}",
@@ -149,7 +149,7 @@
         "suffix": ["무료배송", "당일출고", "박스포장"]
       }
     },
-    "생활_화지/제지": {
+    "화지/제지": {
       "price_min": 10000,
       "price_max": 40000,
       "templates": ["{brand} {adj} {noun} {spec} {count}롤 {suffix}",
@@ -163,7 +163,7 @@
         "suffix": ["무료배송", "빠른배송"]
       }
     },
-    "건강식품_전통": {
+    "건강식품": {
       "price_min": 30000,
       "price_max": 500000,
       "templates": ["{celebrity}의 {process} {ingredient} {noun} {amount}",
@@ -180,7 +180,7 @@
         "suffix": ["쇼핑백증정", "정품보장", "무료배송"]
       }
     },
-    "건강식품_영양제": {
+    "영양제": {
       "price_min": 15000,
       "price_max": 150000,
       "templates": ["{brand} {adj} {ingredient} {noun} {duration}분",
@@ -197,7 +197,7 @@
         "suffix": ["특가판매", "무료배송", "휴대용케이스증정"]
       }
     },
-    "가구_대형(소파/침대)": {
+    "소파/침대": {
       "price_min": 300000,
       "price_max": 3000000,
       "templates": ["{brand} {material} {noun} {size} {suffix}",
@@ -212,7 +212,7 @@
         "suffix": ["방문설치", "폐가구수거", "지정일배송"]
       }
     },
-    "가구_사무/학생": {
+    "사무/학생": {
       "price_min": 50000,
       "price_max": 500000,
       "templates": ["{brand} {adj} {noun} ({model}) {suffix}",
@@ -226,7 +226,7 @@
         "suffix": ["무료배송", "자가설치", "DIY"]
       }
     },
-    "스포츠_골프": {
+    "골프": {
       "price_min": 50000,
       "price_max": 1500000,
       "templates": ["{brand} {year} {spec} {noun} ({gender})", "{brand} {adj} {noun} 풀세트 {suffix}"],
@@ -240,7 +240,7 @@
         "suffix": ["정품보장", "AS가능", "사은품증정"]
       }
     },
-    "스포츠_캠핑": {
+    "캠핑": {
       "price_min": 20000,
       "price_max": 2000000,
       "templates": ["{brand} {adj} {noun} {size} {suffix}", "[감성캠핑] {brand} {noun} ({color})"],
@@ -253,7 +253,7 @@
         "suffix": ["무료배송", "가방증정", "당일발송"]
       }
     },
-    "여행_항공/숙박": {
+    "항공/숙박": {
       "price_min": 50000,
       "price_max": 2000000,
       "templates": ["[항공권] {location} {adj} 왕복 항공권 ({airline})", "{location} {hotel} {room} {count}박 패키지"],
@@ -267,7 +267,7 @@
         "suffix": ["즉시확정", "조식포함"]
       }
     },
-    "여행_티켓/패스": {
+    "티켓/패스": {
       "price_min": 10000,
       "price_max": 100000,
       "templates": ["[입장권] {location} {activity} {people}인권 {suffix}", "{location} {activity} 자유이용권 ({opt})"],
