@@ -16,10 +16,17 @@ class Product(Base):
     price = Column(Integer, nullable=False, comment="단가")
     discount_rate = Column(Float, nullable=True, comment="할인율 (할인율 분석용)")
     description = Column(Text, nullable=True, comment="상품 설명")
-    
+
     brand = Column(String(100), nullable=True, index=True, comment="브랜드") # 브랜드별 분석용 인덱스
     stock = Column(Integer, default=0, comment="재고")
+    
+    # 평점/리뷰 분석용
+    rating = Column(Float, nullable=True, comment="평점")
+    review_count = Column(Integer, default=0, comment="리뷰 수")
+    is_best = Column(String(1), default="N", comment="베스트 상품 여부")
+    
     created_at = Column(DateTime, default=datetime.now, comment="등록일")
+    last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
 
     orders = relationship("Order", back_populates="product")
 
@@ -34,13 +41,20 @@ class User(Base):
     gender = Column(String(10), nullable=True, comment="성별 (M, F)")
     age = Column(Integer, nullable=True, comment="나이")
     birth_year = Column(Integer, nullable=True, comment="출생년도")
-    
+
     address = Column(String(255), nullable=True, comment="전체 주소")
     address_district = Column(String(100), nullable=True, index=True, comment="주소 (구 단위)") # 지역별 분석용 인덱스
-    
+
     email = Column(String(100), nullable=True, comment="이메일")
     grade = Column(String(20), nullable=True, comment="멤버십 등급")
+    
+    # 유저 활동 분석용
+    status = Column(String(20), default="ACTIVE", comment="활동/휴면 상태")
+    last_login_at = Column(DateTime, nullable=True, comment="마지막 로그인 일시")
+    marketing_agree = Column(String(5), default="false", comment="마케팅 동의 여부")
+    
     created_at = Column(DateTime, default=datetime.now, comment="가입일")
+    last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
 
     orders = relationship("Order", back_populates="user")
 
@@ -67,6 +81,7 @@ class Order(Base):
 
     # [분석용 역정규화 필드 (Snapshot)]
     category = Column(String(50), nullable=True, comment="상품 카테고리 (Snapshot)")
+    user_name = Column(String(100), nullable=True, comment="유저 이름 (Snapshot)")
     user_region = Column(String(100), nullable=True, comment="유저 지역 (Snapshot)")
     user_gender = Column(String(10), nullable=True, comment="유저 성별 (Snapshot)")
     user_age_group = Column(String(20), nullable=True, comment="연령대 (Snapshot)")

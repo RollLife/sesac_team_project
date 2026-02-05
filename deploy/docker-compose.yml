@@ -1,0 +1,657 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: local_postgres
+    restart: always
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-sesac_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Kafka Broker 1 (Leader)
+  kafka1:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka1
+    restart: always
+    environment:
+      # KRaft 설정
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # 리스너 설정
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka1:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+
+      # 클러스터 설정 (3개 브로커, 복제 팩터 3)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'  # 수동 토픽 생성
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+
+      # KRaft 메타데이터 디렉토리
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+    command: >
+      bash -c "
+      if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties;
+      fi;
+      /etc/confluent/docker/run
+      "
+
+  # Kafka Broker 2 (Replica)
+  kafka2:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka2
+    restart: always
+    environment:
+      # KRaft 설정
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # 리스너 설정
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9093,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9093,PLAINTEXT_INTERNAL://kafka2:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+
+      # 클러스터 설정
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+
+      # KRaft 메타데이터 디렉토리
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - "9093:9093"
+    volumes:
+      - kafka2_data:/var/lib/kafka/data
+    command: >
+      bash -c "
+      if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties;
+      fi;
+      /etc/confluent/docker/run
+      "
+
+  # Kafka Broker 3 (Replica)
+  kafka3:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka3
+    restart: always
+    environment:
+      # KRaft 설정
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # 리스너 설정
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9094,PLAINTEXT_INTERNAL://kafka3:29094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+
+      # 클러스터 설정
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+
+      # KRaft 메타데이터 디렉토리
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - "9094:9094"
+    volumes:
+      - kafka3_data:/var/lib/kafka/data
+    command: >
+      bash -c "
+      if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        kafka-storage format -t MkU3OEVBNTcwNTJENDM2Qk -c /etc/kafka/kafka.properties;
+      fi;
+      /etc/confluent/docker/run
+      "
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: local_kafka_ui
+    restart: always
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+    ports:
+      - "8080:8080"
+
+  # Grafana 시각화 서비스
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: local_grafana
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  # PostgreSQL 관리 도구
+  adminer:
+    image: adminer:latest
+    container_name: local_adminer
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+  # Redis 캐시 서버 (Aging 기법 적용)
+  redis:
+    image: redis:7-alpine
+    container_name: local_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ============================================
+  # Python 애플리케이션 서비스
+  # ============================================
+
+  # DB 테이블 초기화
+  db-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: db_init
+    depends_on:
+      - postgres
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    command: >
+      bash -c "
+        echo '⏳ PostgreSQL 준비 대기 중...';
+        sleep 5;
+        echo '🚀 테이블 생성 시작...';
+        python -c 'from database.init_db import init_db; init_db()';
+        echo '✅ 테이블 초기화 완료';
+      "
+    restart: "no"
+
+  # Kafka 토픽 초기화 (브로커 준비 대기 후 토픽 생성)
+  kafka-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: kafka_init
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: >
+      bash -c "
+        echo '⏳ Kafka 브로커 준비 대기 중...';
+        sleep 15;
+        echo '🚀 토픽 생성 시작...';
+        python kafka/admin/setup_topics.py;
+        echo '✅ 토픽 초기화 완료';
+      "
+    restart: "no"
+
+  # 초기 데이터 생성 (one-time job)
+  initial-seeder:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: initial_seeder
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python apps/seeders/initial_seeder.py
+    restart: "no"  # 한 번만 실행
+
+  # Redis 캐시 워커 (Aging 기법으로 DB → Redis 갱신)
+  cache-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: cache_worker
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      initial-seeder:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
+      CACHE_REFRESH_INTERVAL: 50
+      CACHE_BATCH_SIZE: 1000
+      CACHE_NEW_DATA_RATIO: 0.5
+    command: python cache/cache_worker.py
+    restart: always
+
+  # Redis 실시간 모니터링
+  redis-monitor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: redis_monitor
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_MONITOR_INTERVAL: 1
+      CACHE_REFRESH_INTERVAL: 50
+    command: python cache/redis_monitor.py
+    restart: always
+
+  # 실시간 데이터 생성 (Producer)
+  producer:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: realtime_producer
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      initial-seeder:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
+    command: python apps/seeders/realtime_generator.py
+    restart: always
+
+  # 실시간 고객 데이터 생성 (User Seeder)
+  user-seeder:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: user_seeder
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      initial-seeder:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python apps/seeders/realtime_generator_user.py --batch-size 10 --interval 10
+    restart: always
+
+  # Consumer - Users Group (3개 인스턴스)
+  user-consumer-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: user_consumer_1
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/user_consumer.py --id user_consumer_1
+    restart: always
+
+  user-consumer-2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: user_consumer_2
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/user_consumer.py --id user_consumer_2
+    restart: always
+
+  user-consumer-3:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: user_consumer_3
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/user_consumer.py --id user_consumer_3
+    restart: always
+
+  # Consumer - Products Group (3개 인스턴스)
+  product-consumer-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: product_consumer_1
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/product_consumer.py --id product_consumer_1
+    restart: always
+
+  product-consumer-2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: product_consumer_2
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/product_consumer.py --id product_consumer_2
+    restart: always
+
+  product-consumer-3:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: product_consumer_3
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/product_consumer.py --id product_consumer_3
+    restart: always
+
+  # Consumer - Orders Group (3개 인스턴스)
+  order-consumer-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: order_consumer_1
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/order_consumer.py --id order_consumer_1
+    restart: always
+
+  order-consumer-2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: order_consumer_2
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/order_consumer.py --id order_consumer_2
+    restart: always
+    
+  # ============================================  
+  # Spark Cluster (Analytics)
+  # ============================================
+  spark-master:
+      image: apache/spark:3.5.0
+      container_name: spark_master
+      # [핵심] 공식 이미지는 이 명령어를 줘야 마스터로 동작합니다.
+      command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      user: root
+      ports:
+        - "8082:8080" # Web UI
+        - "7077:7077" # RPC Port
+      volumes:
+        - ..:/app
+      # networks:
+      #   - default # (사용 중인 네트워크 이름이 있다면 변경)
+
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: spark_worker
+    # [핵심] 워커 실행 명령어를 직접 명시하고, 마스터 주소를 알려줍니다.
+    user: root
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    depends_on:
+      - spark-master
+    volumes:
+      - ..:/app
+    # networks:
+    #   - default
+
+  # ============================================
+  # Jupyter Notebook (Interactive Debugging)
+  # ============================================
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter_notebook
+    user: root # 권한 문제 방지
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - GRANT_SUDO=yes
+    ports:
+      - "8888:8888" # 웹 브라우저 접속용 포트
+    volumes:
+      - ..:/home/jovyan/work # 프로젝트 폴더를 노트북 작업 폴더로 연결
+    networks:
+      - default
+
+  order-consumer-3:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: order_consumer_3
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: python kafka/consumers/order_consumer.py --id order_consumer_3
+    restart: always
+
+  # ============================================
+  # Python 개발/테스트 컨테이너
+  # ============================================
+  python-dev:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: python_dev
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+      KAFKA_TOPIC_USERS: users
+      KAFKA_TOPIC_PRODUCTS: products
+      KAFKA_TOPIC_ORDERS: orders
+    command: tail -f /dev/null  # 컨테이너를 계속 실행 상태로 유지
+    stdin_open: true  # STDIN 열기
+    tty: true  # TTY 할당
+    volumes:
+      - .:/app  # 코드 동기화 (개발용)
+    profiles:
+      - dev  # 프로파일 설정 (선택적 실행)
+
+volumes:
+  postgres_data:
+  kafka1_data:
+  kafka2_data:
+  kafka3_data:
+  redis_data:
+  grafana_data:

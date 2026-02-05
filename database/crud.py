@@ -2,6 +2,28 @@ from sqlalchemy.orm import Session
 from . import models
 from datetime import datetime
 import uuid
+import logging
+
+# Kafka 관련 import
+try:
+    from kafka.config import KAFKA_ENABLED, KAFKA_TOPIC_USERS, KAFKA_TOPIC_PRODUCTS, KAFKA_TOPIC_ORDERS
+    from kafka.producer import KafkaProducer as EventProducer
+except ImportError:
+    KAFKA_ENABLED = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Kafka modules not available, Kafka publishing disabled")
+
+
+def _publish_to_kafka(topic: str, key: str, data: dict, event_type: str):
+    """Kafka 발행 헬퍼 함수"""
+    if not KAFKA_ENABLED:
+        return
+
+    try:
+        producer = EventProducer()
+        producer.send_event(topic, key, data, event_type)
+    except Exception as e:
+        logging.warning(f"Kafka publish failed to {topic}: {e}")
 
 # === Product CRUD ===
 def create_product(db: Session, product_data: dict):
@@ -9,6 +31,22 @@ def create_product(db: Session, product_data: dict):
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
+
+    # Kafka 발행
+    product_dict = {
+        "product_id": db_product.product_id,
+        "name": db_product.name,
+        "category": db_product.category,
+        "brand": db_product.brand,
+        "price": db_product.price,
+        "org_price": db_product.org_price,
+        "discount_rate": db_product.discount_rate,
+        "description": db_product.description,
+        "stock": db_product.stock,
+        "created_at": db_product.created_at,
+    }
+    _publish_to_kafka(KAFKA_TOPIC_PRODUCTS, db_product.product_id, product_dict, 'product_created')
+
     return db_product
 
 def get_product(db: Session, product_id: str):
@@ -40,11 +78,27 @@ def create_user(db: Session, user_data: dict):
     # 가입일 처리 등 필요한 로직 추가 가능
     if "created_at" not in user_data:
         user_data["created_at"] = datetime.now()
-        
+
     db_user = models.User(**user_data)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # Kafka 발행
+    user_dict = {
+        "user_id": db_user.user_id,
+        "name": db_user.name,
+        "gender": db_user.gender,
+        "age": db_user.age,
+        "birth_year": db_user.birth_year,
+        "address": db_user.address,
+        "address_district": db_user.address_district,
+        "email": db_user.email,
+        "grade": db_user.grade,
+        "created_at": db_user.created_at,
+    }
+    _publish_to_kafka(KAFKA_TOPIC_USERS, db_user.user_id, user_dict, 'user_created')
+
     return db_user
 
 def get_user(db: Session, user_id: str):
@@ -100,6 +154,26 @@ def create_order(db: Session, order_data: dict):
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
+
+    # 5. Kafka 발행
+    order_dict = {
+        "order_id": db_order.order_id,
+        "created_at": db_order.created_at,
+        "user_id": db_order.user_id,
+        "product_id": db_order.product_id,
+        "quantity": db_order.quantity,
+        "total_amount": db_order.total_amount,
+        "shipping_cost": db_order.shipping_cost,
+        "discount_amount": db_order.discount_amount,
+        "payment_method": db_order.payment_method,
+        "status": db_order.status,
+        "category": db_order.category,
+        "user_region": db_order.user_region,
+        "user_gender": db_order.user_gender,
+        "user_age_group": db_order.user_age_group,
+    }
+    _publish_to_kafka(KAFKA_TOPIC_ORDERS, db_order.user_id, order_dict, 'order_created')
+
     return db_order
     
 def get_order(db: Session, order_id: str):
