@@ -1,0 +1,18 @@
+apiVersion: 1
+
+datasources:
+  - name: SESAC_DB          # Grafana에서 보일 이름 (마음대로 변경 가능)
+    type: postgres
+    uid: sesac_postgres_uid # [중요] 대시보드 JSON과 연결되는 고유 ID. (아까 파이썬 스크립트에서 쓴 것과 맞춰주세요!)
+    access: proxy
+    url: local_postgres:5432 # [핵심] Docker Container Name을 호스트로 사용!
+    user: postgres          # docker-compose의 POSTGRES_USER 값
+    database: sesac_db      # docker-compose의 POSTGRES_DB 값
+    jsonData:
+      sslmode: "disable"    # 로컬 개발용이라 SSL 끔
+      postgresVersion: 1500 # 버전 15
+      timescaledb: false
+    secureJsonData:
+      password: "password"  # docker-compose의 POSTGRES_PASSWORD 값
+    isDefault: true         # 이걸 기본 DB로 설정
+    editable: true          # GUI에서도 수정 가능하게 할지 여부
