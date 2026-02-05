@@ -1,8 +1,8 @@
 """
-실시간 데이터 생성 시뮬레이터
+실시간 데이터 생성 시뮬레이터 (시나리오 모드)
 
-- 주문 데이터: 2~8초 간격으로 1~5건씩 생성 (무한 루프)
-- 상품 데이터: 10~20초 간격으로 100건씩 생성 (무한 루프)
+- 20개 프리셋 시나리오 중 선택하여 주문 생성 파라미터 결정
+- 실행 중 번호 입력으로 시나리오 실시간 전환 가능
 - Redis 캐시에서 유저/상품 데이터를 가져와서 주문 생성
 """
 
@@ -12,6 +12,7 @@ import time
 import random
 import threading
 import uuid
+import argparse
 from datetime import datetime
 
 # 프로젝트 루트를 sys.path에 추가
@@ -24,6 +25,10 @@ from sqlalchemy.orm import Session
 from database import database, models
 from collect.product_generator import ProductGenerator
 from collect.order_generator import OrderGenerator
+from collect.scenario_engine import (
+    ScenarioEngine, DEFAULT_CONFIG, BASELINE_CONFIG,
+    estimate_duration_minutes, get_hourly_multiplier,
+)
 
 # Kafka Producer import
 from kafka.producer import KafkaProducer
@@ -35,9 +40,9 @@ from cache.config import REDIS_ENABLED
 
 
 class RealtimeDataGenerator:
-    """실시간 데이터 생성 시뮬레이터"""
+    """실시간 데이터 생성 시뮬레이터 (시나리오 모드 지원)"""
 
-    def __init__(self):
+    def __init__(self, scenario_number=None):
         self.running = True
         self.stats = {
             'orders_created': 0,
@@ -48,13 +53,128 @@ class RealtimeDataGenerator:
         }
         self.lock = threading.Lock()
 
+        # 시나리오 엔진
+        self.scenario_engine = ScenarioEngine()
+        self.scenario_config = BASELINE_CONFIG.copy()
+        self.initial_scenario_number = scenario_number
+
+        # 시나리오 타이머 상태
+        self.scenario_number = None          # 현재 시나리오 번호 (None = 기본 패턴)
+        self.scenario_start_time = None      # 시나리오 시작 시각 (time.time)
+        self.scenario_duration = None        # 시나리오 지속 시간 (초)
+
+    # ========================================
+    # 시나리오 타이머 관리
+    # ========================================
+
+    def _apply_scenario(self, number: int):
+        """시나리오를 적용하고 타이머를 시작한다."""
+        config = self.scenario_engine.get_scenario(number)
+        duration_min = estimate_duration_minutes(config)
+
+        with self.lock:
+            self.scenario_config = config
+            self.scenario_number = number
+            self.scenario_start_time = time.time()
+            self.scenario_duration = duration_min * 60  # → 초
+
+        # 적용 안내
+        gw = config.get('gender_weights', {})
+        ov = config['order_volume']
+        top_cats = sorted(config.get('category_weights', {}).items(),
+                          key=lambda x: x[1], reverse=True)[:3]
+        print(f"\n🔄 [{number}] {config['description']} 적용! (⏱️ ~{duration_min}분)")
+        print(f"   주문량: {ov['min']}~{ov['max']}건/배치 | 성별: M={gw.get('M',50)}% F={gw.get('F',50)}%")
+        print(f"   인기 카테고리: {', '.join(f'{c}({w}%)' for c, w in top_cats)}\n")
+
+    def _revert_to_baseline(self):
+        """기본 패턴으로 복귀"""
+        with self.lock:
+            self.scenario_config = BASELINE_CONFIG.copy()
+            self.scenario_number = None
+            self.scenario_start_time = None
+            self.scenario_duration = None
+        print("\n⏰ 시나리오 타이머 종료 → 기본 패턴으로 복귀합니다.\n")
+
+    def _check_scenario_timer(self):
+        """타이머 만료 시 기본 패턴으로 자동 복귀"""
+        with self.lock:
+            if self.scenario_start_time is None or self.scenario_duration is None:
+                return
+            elapsed = time.time() - self.scenario_start_time
+            if elapsed < self.scenario_duration:
+                return
+        # lock 밖에서 복귀 (내부에서 lock 획득)
+        self._revert_to_baseline()
+
+    def _get_scenario_remaining(self):
+        """남은 시간(초) 반환. 타이머 없으면 None"""
+        if self.scenario_start_time is None or self.scenario_duration is None:
+            return None
+        remaining = self.scenario_duration - (time.time() - self.scenario_start_time)
+        return max(0, remaining)
+
+    # ========================================
+    # 시나리오 기반 유저/상품 선택
+    # ========================================
+
+    @staticmethod
+    def _get_age_group(age):
+        """나이 → 연령대 문자열"""
+        if not age:
+            return "30대"
+        if age < 20:
+            return "10대"
+        if age < 30:
+            return "20대"
+        if age < 40:
+            return "30대"
+        if age < 50:
+            return "40대"
+        return "50대이상"
+
+    def _weighted_select_user(self, user_pool, config):
+        """시나리오 가중치에 따라 유저 풀에서 선택"""
+        if not user_pool:
+            return None
+
+        gender_w = config.get("gender_weights", {"M": 50, "F": 50})
+        age_w = config.get("age_group_weights", {})
+
+        scores = []
+        for user in user_pool:
+            g = gender_w.get(user.get("gender", "M"), 50)
+            a = age_w.get(self._get_age_group(user.get("age")), 20)
+            scores.append(max(g * a, 0.1))
+
+        return random.choices(user_pool, weights=scores, k=1)[0]
+
+    def _weighted_select_product(self, product_pool, config):
+        """시나리오 가중치에 따라 상품 풀에서 선택"""
+        if not product_pool:
+            return None
+
+        cat_w = config.get("category_weights", {})
+        scores = [max(cat_w.get(p.get("category", "Unknown"), 1), 0.1) for p in product_pool]
+
+        return random.choices(product_pool, weights=scores, k=1)[0]
+
+    def get_scenario_config(self):
+        """thread-safe 시나리오 설정 읽기"""
+        with self.lock:
+            return self.scenario_config.copy()
+
+    # ========================================
+    # 주문 생성 (시나리오 기반)
+    # ========================================
+
     def generate_orders_continuously(self):
-        """주문 데이터를 지속적으로 생성 (2~8초 간격, 1~5건씩) - Kafka에만 발행"""
+        """주문 데이터를 지속적으로 생성 - 시나리오 가중치 반영"""
         order_generator = OrderGenerator()
         kafka_producer = KafkaProducer()
         redis_client = get_redis_client()
 
-        print("🚀 주문 데이터 생성 스레드 시작 (Redis 캐시 + Kafka 발행 모드)...")
+        print("🚀 주문 데이터 생성 스레드 시작 (시나리오 모드)...")
 
         # Redis 연결 대기
         retry_count = 0
@@ -70,43 +190,53 @@ class RealtimeDataGenerator:
 
         try:
             while self.running:
-                # 1. Redis 캐시에서 유저와 상품 가져오기
-                try:
-                    user = redis_client.get_random_user()
-                    product = redis_client.get_random_product()
+                # 타이머 만료 체크 → 기본 패턴 복귀
+                self._check_scenario_timer()
 
-                    if not user or not product:
+                config = self.get_scenario_config()
+
+                # 1. 배치 크기 및 대기시간 결정 (시나리오 기반)
+                is_peak_time = random.random() <= config.get("peak_probability", 0.02)
+
+                if is_peak_time:
+                    print("🔥 핫딜 타임! 주문 폭주! 🔥")
+                    pv = config.get("peak_volume", {"min": 100, "max": 200})
+                    order_count = random.randint(pv["min"], pv["max"])
+                    sleep_time = 0.05
+                else:
+                    ov = config.get("order_volume", {"min": 10, "max": 50})
+                    order_count = random.randint(ov["min"], ov["max"])
+                    iv = config.get("interval", {"min": 0.2, "max": 0.8})
+                    sleep_time = random.uniform(iv["min"], iv["max"])
+
+                # 시간대별 주문량 보정 (현실적 트래픽 패턴)
+                hourly_mult = get_hourly_multiplier()
+                order_count = max(1, int(order_count * hourly_mult))
+
+                # 2. Redis에서 유저/상품 풀 가져오기 (배치 단위)
+                pool_size = min(order_count * 2, 200)
+                try:
+                    user_pool = redis_client.get_random_users(count=pool_size)
+                    product_pool = redis_client.get_random_products(count=pool_size)
+
+                    if not user_pool or not product_pool:
                         print("⚠️ Redis 캐시에 데이터가 없습니다. cache-worker가 실행 중인지 확인하세요.")
                         time.sleep(5)
                         continue
-
                 except Exception as e:
                     print(f"❌ Redis 조회 실패: {e}")
                     time.sleep(5)
                     continue
 
-                # 2. 랜덤 개수 결정 (1~5건)
-                # 2% 확률로 '피크 타임' 발생 (주문량 5배 폭증)
-                is_peak_time = random.random() <= 0.02 
-
-                if is_peak_time:
-                    print("🔥 핫딜 타임! 주문 폭주! 🔥")
-                    order_count = random.randint(100, 200) # 갑자기 200건
-                    sleep_time = 0.05 # 쉼 없이 쏨
-                else:
-                    # 평소
-                    order_count = random.randint(10, 50)
-                    sleep_time = random.uniform(0.2, 0.8)
-
-                # 3. 주문 생성 후 Kafka에 발행 (DB 저장 X)
+                # 3. 주문 생성 후 Kafka에 발행
                 success_count = 0
                 failed_count = 0
 
                 for _ in range(order_count):
                     try:
-                        # 각 주문마다 새로운 랜덤 유저/상품 선택
-                        user = redis_client.get_random_user()
-                        product = redis_client.get_random_product()
+                        # 시나리오 가중치 기반 유저/상품 선택
+                        user = self._weighted_select_user(user_pool, config)
+                        product = self._weighted_select_product(product_pool, config)
 
                         if not user or not product:
                             failed_count += 1
@@ -117,7 +247,16 @@ class RealtimeDataGenerator:
                         # order_id 생성 (UUID)
                         order_data['order_id'] = str(uuid.uuid4())
 
-                        # 역정규화 데이터 추가 (Redis에서 가져온 데이터는 dict)
+                        # 시나리오 기반 수량 오버라이드
+                        q_weights = config.get("quantity_weights", [80, 10, 5, 3, 2])
+                        order_data['quantity'] = random.choices([1, 2, 3, 4, 5], weights=q_weights, k=1)[0]
+
+                        # 수량 변경에 따른 금액 재계산
+                        p_price = product.get('price', 0)
+                        qty = order_data['quantity']
+                        order_data['total_amount'] = max(0, (p_price * qty) + order_data['shipping_cost'] - order_data['discount_amount'])
+
+                        # 역정규화 데이터 추가
                         order_data['category'] = product.get('category', 'Unknown')
                         user_address = user.get('address', '')
                         order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
@@ -126,7 +265,7 @@ class RealtimeDataGenerator:
                         order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
                         order_data['created_at'] = datetime.now()
 
-                        # Kafka에만 발행 (DB 저장은 Consumer가 담당)
+                        # Kafka에만 발행
                         kafka_producer.send_event(
                             topic=KAFKA_TOPIC_ORDERS,
                             key=order_data['user_id'],
@@ -150,10 +289,11 @@ class RealtimeDataGenerator:
                     elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                     tps = total_orders / elapsed if elapsed > 0 else 0
 
+                scenario_desc = config.get("description", "기본")
                 print(f"[{timestamp}] 🛒 주문 발행: {success_count}/{order_count}건 성공 | "
-                      f"누적: {total_orders:,}건 | TPS: {tps:.2f}")
+                      f"누적: {total_orders:,}건 | TPS: {tps:.2f} | 📋 {scenario_desc}")
 
-                # 5. 랜덤 대기 (2~8초)
+                # 5. 대기
                 time.sleep(sleep_time)
 
         except Exception as e:
@@ -228,7 +368,7 @@ class RealtimeDataGenerator:
             print("🛑 상품 데이터 생성 스레드 종료")
 
     def print_stats_periodically(self):
-        """통계를 주기적으로 출력 (10초마다)"""
+        """통계를 주기적으로 출력 (10초마다) + 카운트다운 표시"""
         try:
             while self.running:
                 time.sleep(10)
@@ -240,9 +380,25 @@ class RealtimeDataGenerator:
                     elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                     orders_tps = self.stats['orders_created'] / elapsed if elapsed > 0 else 0
                     products_tps = self.stats['products_created'] / elapsed if elapsed > 0 else 0
+                    config = self.scenario_config
+                    sc_num = self.scenario_number
+                    remaining = self._get_scenario_remaining()
+
+                # 시나리오 상태 표시
+                if sc_num is not None and remaining is not None:
+                    mins, secs = divmod(int(remaining), 60)
+                    scenario_line = (f"   ⏱️ [{sc_num}] {config.get('description', '기본')} "
+                                     f"— 남은시간 {mins}:{secs:02d}")
+                else:
+                    scenario_line = f"   📋 기본 패턴 (현실적 분포)"
+
+                # 시간대 배수 표시
+                hourly = get_hourly_multiplier()
 
                 print(f"\n{'='*60}")
                 print(f"📊 통계 (경과시간: {elapsed:.1f}초 / {elapsed/60:.1f}분)")
+                print(scenario_line)
+                print(f"   🕐 현재 시간대 보정: x{hourly:.2f}")
                 print(f"{'='*60}")
                 print(f"  🛒 주문:  성공 {self.stats['orders_created']:,}건 | "
                       f"실패 {self.stats['orders_failed']}건 | TPS: {orders_tps:.2f}")
@@ -253,17 +409,71 @@ class RealtimeDataGenerator:
         except Exception as e:
             print(f"❌ 통계 출력 스레드 오류: {e}")
 
+    def scenario_input_loop(self):
+        """사용자로부터 실시간 시나리오 번호 입력을 받는 스레드"""
+        print("\n💡 실행 중 시나리오 번호를 입력하면 즉시 전환됩니다.")
+        print("   menu: 목록 보기 | 0: 기본 패턴으로 복귀\n")
+
+        while self.running:
+            try:
+                raw = input("시나리오를 입력하세요: ").strip()
+                if not raw:
+                    continue
+
+                if raw.lower() == "menu":
+                    self.scenario_engine.print_menu()
+                    continue
+
+                try:
+                    num = int(raw)
+                except ValueError:
+                    print("⚠️ 시나리오 번호(숫자)를 입력해주세요. (menu: 목록 보기)")
+                    continue
+
+                if num == 0:
+                    self._revert_to_baseline()
+                else:
+                    self._apply_scenario(num)
+
+            except EOFError:
+                break
+            except Exception as e:
+                print(f"⚠️ 시나리오 입력 오류: {e}")
+
     def start(self):
         """실시간 데이터 생성 시작"""
         print("""
     ╔════════════════════════════════════════════════════════════╗
-    ║      실시간 데이터 생성 시뮬레이터 (Redis 캐시 모드)        ║
+    ║      실시간 데이터 생성 시뮬레이터 (시나리오 모드)         ║
     ╚════════════════════════════════════════════════════════════╝
         """)
 
+        # 초기 시나리오 적용
+        if self.initial_scenario_number:
+            self._apply_scenario(self.initial_scenario_number)
+        else:
+            self.scenario_engine.print_menu()
+            print(f"\n   0 = 기본 패턴 (시나리오 없이 현실적 분포로 시작)")
+            print()
+            while True:
+                try:
+                    raw = input("📝 시나리오를 입력하세요 (기본=0): ").strip()
+                    num = int(raw) if raw else 0
+                    if num == 0:
+                        print("\n✅ 기본 패턴 (현실적 분포)으로 시작합니다.\n")
+                    else:
+                        self._apply_scenario(num)
+                    break
+                except ValueError:
+                    print("⚠️ 숫자를 입력해주세요.")
+                except EOFError:
+                    break
+
         print("📋 생성 규칙:")
-        print("  - 🛒 주문: 2~8초 간격으로 1~5건씩 생성 (Redis 캐시에서 유저/상품 조회)")
+        print("  - 🛒 주문: 시나리오 가중치 + 시간대별 보정 (Redis 캐시에서 유저/상품 조회)")
         print("  - 📦 상품: 10~20초 간격으로 100건씩 생성")
+        print("  - 🕐 시간대별 트래픽 자동 보정 (새벽 저조 → 저녁 피크)")
+        print("  - ⏱️ 시나리오 타이머 종료 시 기본 패턴으로 자동 복귀")
         print("  - Ctrl+C로 중지\n")
 
         # 시작 시간 기록
@@ -273,10 +483,12 @@ class RealtimeDataGenerator:
         order_thread = threading.Thread(target=self.generate_orders_continuously, daemon=True)
         product_thread = threading.Thread(target=self.generate_products_continuously, daemon=True)
         stats_thread = threading.Thread(target=self.print_stats_periodically, daemon=True)
+        scenario_thread = threading.Thread(target=self.scenario_input_loop, daemon=True)
 
         order_thread.start()
         product_thread.start()
         stats_thread.start()
+        scenario_thread.start()
 
         print("✅ 실시간 데이터 생성 시작! (Ctrl+C로 중지)\n")
 
@@ -296,10 +508,13 @@ class RealtimeDataGenerator:
 
             # 최종 통계 출력
             elapsed = time.time() - self.stats['start_time']
+            sc_desc = self.scenario_config.get('description', '기본 패턴')
+            sc_label = f"[{self.scenario_number}] {sc_desc}" if self.scenario_number else sc_desc
             print(f"\n{'#'*60}")
             print("# 📊 최종 통계")
             print(f"{'#'*60}")
             print(f"  총 실행시간: {elapsed:.1f}초 ({elapsed/60:.1f}분)")
+            print(f"  📋 마지막 시나리오: {sc_label}")
             print(f"  🛒 주문 생성: {self.stats['orders_created']:,}건 (실패: {self.stats['orders_failed']})")
             print(f"  📦 상품 생성: {self.stats['products_created']:,}개 (실패: {self.stats['products_failed']})")
             print(f"{'#'*60}\n")
@@ -309,7 +524,16 @@ class RealtimeDataGenerator:
 
 def main():
     """메인 실행 함수"""
-    generator = RealtimeDataGenerator()
+    parser = argparse.ArgumentParser(description="실시간 데이터 생성 시뮬레이터 (시나리오 모드)")
+    parser.add_argument(
+        "--scenario", "-s",
+        type=int,
+        default=None,
+        help="시나리오 번호 (1~20, 예: --scenario 4 → 블랙프라이데이)"
+    )
+    args = parser.parse_args()
+
+    generator = RealtimeDataGenerator(scenario_number=args.scenario)
     generator.start()
 
 

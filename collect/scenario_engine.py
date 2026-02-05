@@ -1,0 +1,483 @@
+"""
+시나리오 엔진 - 프리셋 기반
+
+20개의 사전 정의된 시나리오 중 선택하여
+주문 생성 파라미터를 반환한다.
+시나리오는 일시적 이벤트이며, 타이머 종료 후 기본 패턴으로 복귀한다.
+"""
+
+from datetime import datetime
+from typing import Dict, Any, List
+
+AVAILABLE_CATEGORIES = [
+    "패션_SS(봄여름)", "패션_FW(가을겨울)",
+    "뷰티_스킨케어", "뷰티_기능성(안티에이징)",
+    "식품_신선(과일/채소)", "식품_육류/가공",
+    "가전_생활(백색가전)", "가전_IT/게이밍",
+    "생활_세제/위생", "생활_화지/제지",
+    "건강식품_전통", "건강식품_영양제",
+    "가구_대형(소파/침대)", "가구_사무/학생",
+    "스포츠_골프", "스포츠_캠핑",
+    "여행_항공/숙박", "여행_티켓/패스",
+]
+
+
+def _cat_weights(**overrides) -> Dict[str, float]:
+    """기본 균등 가중치에서 특정 카테고리만 오버라이드"""
+    base = {cat: 2 for cat in AVAILABLE_CATEGORIES}
+    remaining = 100
+    for cat, w in overrides.items():
+        base[cat] = w
+        remaining -= w
+    non_override = [c for c in AVAILABLE_CATEGORIES if c not in overrides]
+    if non_override:
+        each = max(remaining / len(non_override), 0.5)
+        for c in non_override:
+            base[c] = round(each, 1)
+    return base
+
+
+# ============================================================
+# 시간대별 주문량 배수 (한국 이커머스 실측 기반)
+# 1.0 = 평균, 새벽 최저 → 점심/저녁 피크
+# ============================================================
+HOURLY_MULTIPLIER = {
+    0: 0.35, 1: 0.18, 2: 0.10, 3: 0.06, 4: 0.05, 5: 0.08,
+    6: 0.18, 7: 0.35, 8: 0.55, 9: 0.80, 10: 1.15, 11: 1.30,
+    12: 1.10, 13: 0.90, 14: 0.85, 15: 0.90, 16: 0.95, 17: 1.05,
+    18: 1.15, 19: 1.35, 20: 1.50, 21: 1.40, 22: 1.10, 23: 0.65,
+}
+
+
+def get_hourly_multiplier() -> float:
+    """현재 시각 기준 주문량 배수 반환"""
+    return HOURLY_MULTIPLIER.get(datetime.now().hour, 1.0)
+
+
+# ============================================================
+# 기본 패턴 (현실적 이커머스 분포)
+# - 카테고리: 한국 이커머스 시장 점유율 기반
+# - 성별: 온라인 쇼핑 성비 약 45:55 (남:여)
+# - 연령: 20-30대 중심, 40대 상당, 10대/50대+ 소수
+# ============================================================
+BASELINE_CONFIG = {
+    "description": "기본 패턴 (현실적 분포)",
+    "order_volume": {"min": 10, "max": 50},
+    "interval": {"min": 0.3, "max": 1.0},
+    "peak_probability": 0.02,
+    "peak_volume": {"min": 80, "max": 150},
+    "gender_weights": {"M": 45, "F": 55},
+    "age_group_weights": {"10대": 8, "20대": 28, "30대": 28, "40대": 22, "50대이상": 14},
+    "category_weights": _cat_weights(**{
+        "패션_SS(봄여름)": 11, "패션_FW(가을겨울)": 11,
+        "뷰티_스킨케어": 8, "뷰티_기능성(안티에이징)": 5,
+        "식품_신선(과일/채소)": 9, "식품_육류/가공": 7,
+        "가전_생활(백색가전)": 8, "가전_IT/게이밍": 7,
+        "생활_세제/위생": 7, "생활_화지/제지": 4,
+        "건강식품_전통": 4, "건강식품_영양제": 5,
+    }),
+    "quantity_weights": [75, 13, 7, 3, 2],
+}
+
+
+# ============================================================
+# 20개 프리셋 시나리오 (일시적 이벤트)
+# ============================================================
+SCENARIOS: Dict[int, Dict[str, Any]] = {
+    1: {
+        "description": "여성 구매고객 대량 유입",
+        "order_volume": {"min": 80, "max": 200},
+        "interval": {"min": 0.3, "max": 1.0},
+        "peak_probability": 0.10,
+        "peak_volume": {"min": 200, "max": 400},
+        "gender_weights": {"M": 10, "F": 90},
+        "age_group_weights": {"10대": 10, "20대": 35, "30대": 30, "40대": 15, "50대이상": 10},
+        "category_weights": _cat_weights(**{
+            "뷰티_스킨케어": 20, "뷰티_기능성(안티에이징)": 15,
+            "패션_SS(봄여름)": 18, "패션_FW(가을겨울)": 12,
+            "건강식품_영양제": 8,
+        }),
+        "quantity_weights": [60, 20, 10, 5, 5],
+    },
+    2: {
+        "description": "남성 IT/게이밍 폭주",
+        "order_volume": {"min": 50, "max": 150},
+        "interval": {"min": 0.2, "max": 0.6},
+        "peak_probability": 0.08,
+        "peak_volume": {"min": 150, "max": 300},
+        "gender_weights": {"M": 85, "F": 15},
+        "age_group_weights": {"10대": 25, "20대": 35, "30대": 25, "40대": 10, "50대이상": 5},
+        "category_weights": _cat_weights(**{
+            "가전_IT/게이밍": 35, "가전_생활(백색가전)": 10,
+            "가구_사무/학생": 10,
+        }),
+        "quantity_weights": [85, 10, 3, 1, 1],
+    },
+    3: {
+        "description": "블랙프라이데이 대규모 세일",
+        "order_volume": {"min": 150, "max": 400},
+        "interval": {"min": 0.1, "max": 0.5},
+        "peak_probability": 0.30,
+        "peak_volume": {"min": 400, "max": 800},
+        "gender_weights": {"M": 50, "F": 50},
+        "age_group_weights": {"10대": 15, "20대": 30, "30대": 30, "40대": 15, "50대이상": 10},
+        "category_weights": _cat_weights(**{
+            "가전_생활(백색가전)": 15, "가전_IT/게이밍": 15,
+            "패션_FW(가을겨울)": 12, "뷰티_기능성(안티에이징)": 10,
+            "가구_대형(소파/침대)": 8,
+        }),
+        "quantity_weights": [50, 25, 15, 5, 5],
+    },
+    4: {
+        "description": "설날/추석 선물세트 시즌",
+        "order_volume": {"min": 60, "max": 180},
+        "interval": {"min": 0.3, "max": 1.0},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 200, "max": 350},
+        "gender_weights": {"M": 40, "F": 60},
+        "age_group_weights": {"10대": 5, "20대": 15, "30대": 25, "40대": 30, "50대이상": 25},
+        "category_weights": _cat_weights(**{
+            "건강식품_전통": 25, "건강식품_영양제": 15,
+            "식품_육류/가공": 15, "식품_신선(과일/채소)": 12,
+            "뷰티_기능성(안티에이징)": 8,
+        }),
+        "quantity_weights": [40, 30, 15, 10, 5],
+    },
+    5: {
+        "description": "여름 패션/뷰티 시즌",
+        "order_volume": {"min": 40, "max": 120},
+        "interval": {"min": 0.3, "max": 0.8},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 150, "max": 250},
+        "gender_weights": {"M": 40, "F": 60},
+        "age_group_weights": {"10대": 20, "20대": 35, "30대": 25, "40대": 15, "50대이상": 5},
+        "category_weights": _cat_weights(**{
+            "패션_SS(봄여름)": 30, "뷰티_스킨케어": 20,
+            "스포츠_캠핑": 8, "여행_항공/숙박": 8,
+        }),
+        "quantity_weights": [70, 15, 10, 3, 2],
+    },
+    6: {
+        "description": "겨울 패딩/방한용품 시즌",
+        "order_volume": {"min": 40, "max": 120},
+        "interval": {"min": 0.3, "max": 0.8},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 150, "max": 250},
+        "gender_weights": {"M": 45, "F": 55},
+        "age_group_weights": {"10대": 15, "20대": 25, "30대": 25, "40대": 20, "50대이상": 15},
+        "category_weights": _cat_weights(**{
+            "패션_FW(가을겨울)": 35, "가전_생활(백색가전)": 12,
+            "생활_세제/위생": 8, "식품_육류/가공": 8,
+        }),
+        "quantity_weights": [75, 15, 5, 3, 2],
+    },
+    7: {
+        "description": "뷰티 인플루언서 바이럴",
+        "order_volume": {"min": 100, "max": 250},
+        "interval": {"min": 0.1, "max": 0.5},
+        "peak_probability": 0.15,
+        "peak_volume": {"min": 250, "max": 500},
+        "gender_weights": {"M": 15, "F": 85},
+        "age_group_weights": {"10대": 25, "20대": 40, "30대": 25, "40대": 8, "50대이상": 2},
+        "category_weights": _cat_weights(**{
+            "뷰티_스킨케어": 35, "뷰티_기능성(안티에이징)": 20,
+            "건강식품_영양제": 8, "패션_SS(봄여름)": 8,
+        }),
+        "quantity_weights": [55, 25, 12, 5, 3],
+    },
+    8: {
+        "description": "MZ세대 (10-20대) 트렌드 쇼핑",
+        "order_volume": {"min": 60, "max": 150},
+        "interval": {"min": 0.2, "max": 0.6},
+        "peak_probability": 0.08,
+        "peak_volume": {"min": 150, "max": 300},
+        "gender_weights": {"M": 45, "F": 55},
+        "age_group_weights": {"10대": 35, "20대": 45, "30대": 15, "40대": 4, "50대이상": 1},
+        "category_weights": _cat_weights(**{
+            "패션_SS(봄여름)": 15, "패션_FW(가을겨울)": 10,
+            "뷰티_스킨케어": 15, "가전_IT/게이밍": 15,
+            "여행_티켓/패스": 8,
+        }),
+        "quantity_weights": [80, 12, 5, 2, 1],
+    },
+    9: {
+        "description": "5060 건강/식품 집중 구매",
+        "order_volume": {"min": 20, "max": 80},
+        "interval": {"min": 0.5, "max": 1.5},
+        "peak_probability": 0.03,
+        "peak_volume": {"min": 80, "max": 150},
+        "gender_weights": {"M": 40, "F": 60},
+        "age_group_weights": {"10대": 2, "20대": 5, "30대": 10, "40대": 30, "50대이상": 53},
+        "category_weights": _cat_weights(**{
+            "건강식품_전통": 25, "건강식품_영양제": 20,
+            "식품_신선(과일/채소)": 15, "식품_육류/가공": 10,
+        }),
+        "quantity_weights": [50, 25, 15, 5, 5],
+    },
+    10: {
+        "description": "캠핑 시즌 (봄/가을)",
+        "order_volume": {"min": 30, "max": 100},
+        "interval": {"min": 0.3, "max": 1.0},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 100, "max": 200},
+        "gender_weights": {"M": 65, "F": 35},
+        "age_group_weights": {"10대": 5, "20대": 20, "30대": 35, "40대": 30, "50대이상": 10},
+        "category_weights": _cat_weights(**{
+            "스포츠_캠핑": 30, "식품_육류/가공": 15,
+            "생활_세제/위생": 8, "여행_티켓/패스": 8,
+        }),
+        "quantity_weights": [60, 20, 10, 5, 5],
+    },
+    11: {
+        "description": "신학기 시즌 (가구/IT)",
+        "order_volume": {"min": 40, "max": 100},
+        "interval": {"min": 0.3, "max": 0.8},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 100, "max": 200},
+        "gender_weights": {"M": 50, "F": 50},
+        "age_group_weights": {"10대": 30, "20대": 40, "30대": 15, "40대": 10, "50대이상": 5},
+        "category_weights": _cat_weights(**{
+            "가구_사무/학생": 25, "가전_IT/게이밍": 25,
+            "생활_세제/위생": 8, "생활_화지/제지": 5,
+        }),
+        "quantity_weights": [85, 10, 3, 1, 1],
+    },
+    12: {
+        "description": "결혼/혼수 시즌",
+        "order_volume": {"min": 30, "max": 80},
+        "interval": {"min": 0.5, "max": 1.5},
+        "peak_probability": 0.03,
+        "peak_volume": {"min": 80, "max": 150},
+        "gender_weights": {"M": 35, "F": 65},
+        "age_group_weights": {"10대": 2, "20대": 20, "30대": 50, "40대": 20, "50대이상": 8},
+        "category_weights": _cat_weights(**{
+            "가전_생활(백색가전)": 25, "가구_대형(소파/침대)": 25,
+            "생활_세제/위생": 10, "생활_화지/제지": 5,
+        }),
+        "quantity_weights": [70, 15, 10, 3, 2],
+    },
+    13: {
+        "description": "새해 다이어트/헬스 시즌",
+        "order_volume": {"min": 40, "max": 120},
+        "interval": {"min": 0.3, "max": 0.8},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 120, "max": 250},
+        "gender_weights": {"M": 40, "F": 60},
+        "age_group_weights": {"10대": 10, "20대": 30, "30대": 30, "40대": 20, "50대이상": 10},
+        "category_weights": _cat_weights(**{
+            "건강식품_영양제": 25, "스포츠_골프": 5,
+            "스포츠_캠핑": 5, "식품_신선(과일/채소)": 15,
+            "패션_SS(봄여름)": 10,
+        }),
+        "quantity_weights": [60, 20, 10, 5, 5],
+    },
+    14: {
+        "description": "육아맘 생필품 대량 구매",
+        "order_volume": {"min": 40, "max": 100},
+        "interval": {"min": 0.3, "max": 1.0},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 100, "max": 200},
+        "gender_weights": {"M": 10, "F": 90},
+        "age_group_weights": {"10대": 2, "20대": 15, "30대": 50, "40대": 28, "50대이상": 5},
+        "category_weights": _cat_weights(**{
+            "생활_세제/위생": 25, "생활_화지/제지": 20,
+            "식품_신선(과일/채소)": 15, "식품_육류/가공": 10,
+            "건강식품_영양제": 8,
+        }),
+        "quantity_weights": [30, 25, 20, 15, 10],
+    },
+    15: {
+        "description": "골프 시즌 (봄/가을)",
+        "order_volume": {"min": 20, "max": 60},
+        "interval": {"min": 0.5, "max": 1.5},
+        "peak_probability": 0.03,
+        "peak_volume": {"min": 60, "max": 120},
+        "gender_weights": {"M": 70, "F": 30},
+        "age_group_weights": {"10대": 2, "20대": 10, "30대": 25, "40대": 35, "50대이상": 28},
+        "category_weights": _cat_weights(**{
+            "스포츠_골프": 40, "패션_SS(봄여름)": 12,
+            "여행_항공/숙박": 8, "여행_티켓/패스": 5,
+        }),
+        "quantity_weights": [80, 12, 5, 2, 1],
+    },
+    16: {
+        "description": "여행 성수기 (여름/연말)",
+        "order_volume": {"min": 50, "max": 130},
+        "interval": {"min": 0.3, "max": 0.8},
+        "peak_probability": 0.08,
+        "peak_volume": {"min": 130, "max": 250},
+        "gender_weights": {"M": 45, "F": 55},
+        "age_group_weights": {"10대": 10, "20대": 30, "30대": 30, "40대": 20, "50대이상": 10},
+        "category_weights": _cat_weights(**{
+            "여행_항공/숙박": 30, "여행_티켓/패스": 20,
+            "패션_SS(봄여름)": 10, "뷰티_스킨케어": 8,
+        }),
+        "quantity_weights": [70, 20, 5, 3, 2],
+    },
+    17: {
+        "description": "새벽배송 식품 집중",
+        "order_volume": {"min": 30, "max": 90},
+        "interval": {"min": 0.3, "max": 1.0},
+        "peak_probability": 0.05,
+        "peak_volume": {"min": 90, "max": 180},
+        "gender_weights": {"M": 35, "F": 65},
+        "age_group_weights": {"10대": 5, "20대": 20, "30대": 35, "40대": 25, "50대이상": 15},
+        "category_weights": _cat_weights(**{
+            "식품_신선(과일/채소)": 30, "식품_육류/가공": 25,
+            "생활_세제/위생": 10, "생활_화지/제지": 8,
+        }),
+        "quantity_weights": [40, 25, 20, 10, 5],
+    },
+    18: {
+        "description": "가전 할인 행사 (빅세일)",
+        "order_volume": {"min": 80, "max": 200},
+        "interval": {"min": 0.2, "max": 0.6},
+        "peak_probability": 0.15,
+        "peak_volume": {"min": 200, "max": 400},
+        "gender_weights": {"M": 55, "F": 45},
+        "age_group_weights": {"10대": 5, "20대": 20, "30대": 30, "40대": 30, "50대이상": 15},
+        "category_weights": _cat_weights(**{
+            "가전_생활(백색가전)": 30, "가전_IT/게이밍": 25,
+            "가구_대형(소파/침대)": 10,
+        }),
+        "quantity_weights": [85, 10, 3, 1, 1],
+    },
+    19: {
+        "description": "평일 심야 소량 주문",
+        "order_volume": {"min": 3, "max": 15},
+        "interval": {"min": 1.0, "max": 3.0},
+        "peak_probability": 0.01,
+        "peak_volume": {"min": 20, "max": 40},
+        "gender_weights": {"M": 55, "F": 45},
+        "age_group_weights": {"10대": 10, "20대": 35, "30대": 30, "40대": 15, "50대이상": 10},
+        "category_weights": _cat_weights(**{
+            "식품_신선(과일/채소)": 12, "생활_세제/위생": 10,
+            "뷰티_스킨케어": 10, "가전_IT/게이밍": 10,
+        }),
+        "quantity_weights": [90, 7, 2, 1, 0],
+    },
+    20: {
+        "description": "전 카테고리 균등 대량 주문",
+        "order_volume": {"min": 100, "max": 300},
+        "interval": {"min": 0.1, "max": 0.4},
+        "peak_probability": 0.10,
+        "peak_volume": {"min": 300, "max": 600},
+        "gender_weights": {"M": 50, "F": 50},
+        "age_group_weights": {"10대": 15, "20대": 25, "30대": 25, "40대": 20, "50대이상": 15},
+        "category_weights": {cat: round(100 / len(AVAILABLE_CATEGORIES), 1) for cat in AVAILABLE_CATEGORIES},
+        "quantity_weights": [70, 15, 8, 4, 3],
+    },
+}
+
+DEFAULT_CONFIG = BASELINE_CONFIG
+
+
+def estimate_duration_minutes(config: Dict[str, Any], target_orders: int = 10000) -> int:
+    """시나리오 설정으로부터 유의미한 데이터 수집 권장 시간(분) 계산"""
+    ov = config["order_volume"]
+    iv = config["interval"]
+    avg_volume = (ov["min"] + ov["max"]) / 2
+    avg_interval = (iv["min"] + iv["max"]) / 2
+
+    peak_prob = config.get("peak_probability", 0.02)
+    pv = config.get("peak_volume", {"min": 100, "max": 200})
+    avg_peak = (pv["min"] + pv["max"]) / 2
+
+    effective_avg = avg_volume * (1 - peak_prob) + avg_peak * peak_prob
+    tps = effective_avg / avg_interval if avg_interval > 0 else effective_avg
+    seconds = target_orders / tps if tps > 0 else 300
+    return max(1, round(seconds / 60))
+
+
+class ScenarioEngine:
+    """프리셋 기반 시나리오 엔진"""
+
+    def __init__(self):
+        self.current_config: Dict[str, Any] = DEFAULT_CONFIG.copy()
+
+    def get_scenario(self, number: int) -> Dict[str, Any]:
+        """번호로 시나리오 선택"""
+        config = SCENARIOS.get(number)
+        if config is None:
+            print(f"⚠️ {number}번 시나리오가 없습니다. 기본 시나리오를 사용합니다.")
+            config = DEFAULT_CONFIG
+        self.current_config = config.copy()
+        return self.current_config
+
+    def get_current_config(self) -> Dict[str, Any]:
+        return self.current_config
+
+    @staticmethod
+    def list_scenarios() -> List[Dict[str, Any]]:
+        """전체 시나리오 목록 반환"""
+        return [{"number": k, "description": v["description"]} for k, v in SCENARIOS.items()]
+
+    @staticmethod
+    def print_menu():
+        """시나리오 선택 메뉴 출력"""
+        print("\n╔════════════════════════════════════════════════════════════════╗")
+        print("║                  시나리오 선택 메뉴                           ║")
+        print("╠════════════════════════════════════════════════════════════════╣")
+        print("║                                                                ║")
+        print("║  [성별/연령 특화]                                              ║")
+        for num in [1, 2, 8, 9, 14]:
+            s = SCENARIOS[num]
+            dur = estimate_duration_minutes(s)
+            print(f"║  {num:>2}. {s['description']:<28} (~{dur}분)              ║")
+        print("║  [시즌/이벤트]                                                 ║")
+        for num in [3, 4, 5, 6, 12, 13]:
+            s = SCENARIOS[num]
+            dur = estimate_duration_minutes(s)
+            print(f"║  {num:>2}. {s['description']:<28} (~{dur}분)              ║")
+        print("║  [카테고리 특화]                                               ║")
+        for num in [7, 10, 11, 15, 16, 17, 18]:
+            s = SCENARIOS[num]
+            dur = estimate_duration_minutes(s)
+            print(f"║  {num:>2}. {s['description']:<28} (~{dur}분)              ║")
+        print("║  [트래픽 패턴]                                                 ║")
+        for num in [19, 20]:
+            s = SCENARIOS[num]
+            dur = estimate_duration_minutes(s)
+            print(f"║  {num:>2}. {s['description']:<28} (~{dur}분)              ║")
+        print("║                                                                ║")
+        print("╚════════════════════════════════════════════════════════════════╝")
+
+
+if __name__ == "__main__":
+    from pprint import pprint
+
+    engine = ScenarioEngine()
+    engine.print_menu()
+    print()
+
+    while True:
+        try:
+            raw = input("📝 시나리오 번호를 입력하세요 (exit 종료): ").strip()
+        except EOFError:
+            break
+
+        if not raw:
+            continue
+        if raw.lower() == "exit":
+            print("종료합니다.")
+            break
+
+        try:
+            num = int(raw)
+        except ValueError:
+            print("⚠️ 숫자를 입력해주세요.")
+            continue
+
+        config = engine.get_scenario(num)
+        dur = estimate_duration_minutes(config)
+        desc = config["description"]
+        gw = config["gender_weights"]
+        ov = config["order_volume"]
+        top_cats = sorted(config["category_weights"].items(), key=lambda x: x[1], reverse=True)[:3]
+
+        print(f"\n  ✅ [{num}] {desc}")
+        print(f"     권장 실행 시간: ~{dur}분 (약 10,000건 수집)")
+        print(f"     주문량: {ov['min']}~{ov['max']}건/배치")
+        print(f"     성별: M={gw['M']}% F={gw['F']}%")
+        print(f"     인기 카테고리: {', '.join(f'{c}({w}%)' for c, w in top_cats)}")
+        print()

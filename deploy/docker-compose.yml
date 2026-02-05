@@ -151,7 +151,7 @@ services:
     ports:
       - "8080:8080"
 
-  # Grafana 시각화 서비스
+# Grafana 시각화 서비스
   grafana:
     image: grafana/grafana-oss:latest
     container_name: local_grafana
@@ -163,8 +163,17 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource
     volumes:
+      # 1. (기존) 그라파나 데이터 저장소 (사용자 비번 등 저장)
       - grafana_data:/var/lib/grafana
+      - ../apps/seeders/history_data.db:/var/lib/grafana/history_data.db:ro
+      
+      # 2. [추가] 프로비저닝 설정 파일 연결 (dashboard.yml이 있는 폴더 통째로)
+      - ../grafana/provisioning:/etc/grafana/provisioning
+
+      # 3. [추가] 실제 대시보드 JSON 파일 연결 (analysis.json이 있는 폴더)
+      - ../grafana/dashboards:/var/lib/grafana/dashboards
 
   # PostgreSQL 관리 도구
   adminer:
