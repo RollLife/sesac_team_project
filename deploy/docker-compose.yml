@@ -251,8 +251,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: initial_seeder
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -272,9 +274,12 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: cache_worker
     depends_on:
-      - db-init
-      - redis
-      - initial-seeder
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      initial-seeder:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -314,10 +319,14 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: realtime_producer
     depends_on:
-      - db-init
-      - kafka-init
-      - initial-seeder
-      - redis
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      initial-seeder:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -340,9 +349,12 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_seeder
     depends_on:
-      - db-init
-      - kafka-init
-      - initial-seeder
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      initial-seeder:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -362,8 +374,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_consumer_1
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -382,8 +396,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_consumer_2
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -402,8 +418,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: user_consumer_3
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -423,8 +441,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: product_consumer_1
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -443,8 +463,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: product_consumer_2
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -463,8 +485,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: product_consumer_3
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -484,8 +508,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: order_consumer_1
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -504,8 +530,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: order_consumer_2
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -571,8 +599,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: order_consumer_3
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
@@ -594,8 +624,10 @@ services:
       dockerfile: deploy/Dockerfile
     container_name: python_dev
     depends_on:
-      - db-init
-      - kafka-init
+      db-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       DB_TYPE: local
       POSTGRES_USER: postgres
