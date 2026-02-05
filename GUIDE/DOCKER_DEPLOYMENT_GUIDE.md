@@ -2,39 +2,72 @@
 
 ## 개요
 
-모든 애플리케이션이 Docker 컨테이너로 실행됩니다.
+모든 애플리케이션이 Docker 컨테이너로 실행됩니다. Redis 캐싱 + Aging 기법을 통해 대용량 데이터 환경에서도 효율적인 성능을 제공합니다.
 
-## 서비스 구성
+## 시스템 아키텍처
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
+│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+      ┌────────────────────────────────────────┘
+      ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Producer   │────▶│   Kafka     │────▶│  Consumers  │
+│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │ PostgreSQL  │
+                                        │   (저장)    │
+                                        └─────────────┘
+```
+
+## 서비스 구성 (20개 컨테이너)
 
 ### 인프라 (7개)
 - `postgres`: PostgreSQL 데이터베이스
-- `kafka1`, `kafka2`, `kafka3`: 카프카 클러스터 (3 브로커)
-- `kafka-ui`: 카프카 모니터링 UI
+- `kafka1`, `kafka2`, `kafka3`: Kafka 클러스터 (3 브로커)
+- `kafka-ui`: Kafka 모니터링 UI
+- `redis`: Redis 캐시 서버
 - `grafana`: 데이터 시각화 대시보드
-- `adminer`: PostgreSQL 관리 도구
+- `adminer`: DB 관리 UI
 
-### 초기화 서비스 (2개)
-- `db-init`: 데이터베이스 테이블 초기화 (one-time job)
-- `kafka-init`: 카프카 토픽 생성 (one-time job)
 
-### 애플리케이션 (11개)
+### 캐시 서비스 (2개)
+- `cache-worker`: Redis 캐시 갱신 (Aging 기법, 50초마다)
+- `redis-monitor`: Redis 실시간 모니터링
+
+### 데이터 생성 (3개)
 - `initial-seeder`: 초기 데이터 생성 (one-time job)
-- `producer`: 실시간 데이터 생성
+- `producer`: 실시간 주문/상품 생성 (Redis에서 조회)
+- `user-seeder`: 실시간 고객 생성
+
+### Consumer (9개)
 - `user-consumer-1/2/3`: 유저 토픽 컨슈머 (3개)
 - `product-consumer-1/2/3`: 상품 토픽 컨슈머 (3개)
 - `order-consumer-1/2/3`: 주문 토픽 컨슈머 (3개)
 
+
 **총 20개 컨테이너**
+
+### 개발 (1개, 선택적)
+- `python-dev`: 개발 컨테이너 (dev 프로파일)
 
 ## 빠른 시작
 
 ### 1. 전체 서비스 실행
 
 ```bash
+cd deploy
+
 # 1. 도커 이미지 빌드
 docker-compose build
 
-# 2. 인프라 + Producer + Consumers 시작
+# 2. 모든 서비스 시작
 docker-compose up -d
 
 # 3. 로그 확인
@@ -46,6 +79,7 @@ docker-compose logs -f
 ```bash
 # 실행 중인 컨테이너 확인
 docker-compose ps
+
 ```
 
 **웹 UI 접속:**
@@ -55,9 +89,14 @@ docker-compose ps
 | Grafana | http://localhost:3000 | admin / admin |
 | Adminer | http://localhost:8081 | DB 관리 |
 
-## 상세 실행 가이드
+```
 
-### 단계별 실행
+## Redis 캐싱 + Aging 기법
+
+### 개념
+- **50초마다** DB에서 1,000건의 유저/상품 데이터를 Redis로 캐싱
+- **Aging 기법**: 50% 신규 데이터 + 50% 기존 데이터로 기아(Starvation) 방지
+- **Producer**: Redis 캐시에서 랜덤 조회 → Kafka 발행
 
 #### 1단계: 인프라만 시작
 ```bash
@@ -120,9 +159,37 @@ docker-compose up -d order-consumer-1 order-consumer-2 order-consumer-3
 docker-compose up -d user-consumer-1
 ```
 
+### 환경변수 설정
+```yaml
+# cache-worker 환경변수
+CACHE_REFRESH_INTERVAL: 50     # 캐시 갱신 주기 (초)
+CACHE_BATCH_SIZE: 1000         # 캐시 배치 크기
+CACHE_NEW_DATA_RATIO: 0.5      # 신규 데이터 비율 (50%)
+```
+
+### 성능 향상
+| 지표 | Before | After | 개선율 |
+|------|--------|-------|--------|
+| DB 쿼리/분 | ~60회 | ~1.2회 | 98% 감소 |
+| 조회 속도 | 10-100ms | 0.1-1ms | 100배 향상 |
+
+
 ## 로그 및 모니터링
 
-### 로그 확인
+### Redis 캐시 모니터링
+
+```bash
+# Redis Monitor 로그 확인 (실시간 캐시 상태)
+docker logs -f redis_monitor
+
+# 출력 예시:
+# [11:45:35] [15/50s ######--------------] | MEM: 2.25M | OPS/s: 1 | HIT: 100.0% | CACHE: users=1000, products=1000 | 교체: 1회
+
+# Cache Worker 로그 확인
+docker logs -f cache_worker
+```
+
+### 일반 로그 확인
 
 ```bash
 # 전체 로그
@@ -130,7 +197,7 @@ docker-compose logs -f
 
 # 특정 서비스 로그
 docker-compose logs -f producer
-docker-compose logs -f user-consumer-1
+docker-compose logs -f order-consumer-1
 docker-compose logs -f kafka1
 
 # 최근 100줄만
@@ -147,7 +214,7 @@ docker-compose ps
 docker stats
 
 # 특정 컨테이너 상세 정보
-docker inspect user_consumer_1
+docker inspect redis_monitor
 ```
 
 ### Kafka 모니터링
@@ -157,9 +224,9 @@ docker inspect user_consumer_1
 http://localhost:8080
 
 # CLI로 컨슈머 그룹 확인
-docker-compose exec kafka1 kafka-consumer-groups \
-  --bootstrap-server localhost:9092 \
-  --describe --group users_group
+docker exec kafka1 kafka-consumer-groups \
+  --bootstrap-server kafka1:29092 \
+  --describe --group orders_group
 ```
 
 ### Grafana 대시보드
@@ -180,48 +247,32 @@ http://localhost:3000
 
 ## 환경변수 설정
 
-### 방법 1: docker-compose.yml 수정
+### Redis 캐시 설정
+```yaml
+# docker-compose.yml의 cache-worker
+environment:
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  CACHE_REFRESH_INTERVAL: 50
+  CACHE_BATCH_SIZE: 1000
+  CACHE_NEW_DATA_RATIO: 0.5
+```
+
+### Kafka 설정
+```yaml
+environment:
+  KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+  KAFKA_ENABLED: "true"
+```
+
+### DB 설정
 ```yaml
 environment:
   DB_TYPE: local
   POSTGRES_HOST: postgres
-  KAFKA_ENABLED: "true"
-```
-
-### 방법 2: .env.docker 파일 사용
-```bash
-# .env.docker 파일 생성 (이미 있음)
-DB_TYPE=local
-POSTGRES_USER=postgres
-KAFKA_ENABLED=true
-
-# docker-compose.yml에서 참조
-env_file:
-  - .env.docker
-```
-
-### 방법 3: 런타임 환경변수
-```bash
-# 카프카 비활성화로 실행
-docker-compose run -e KAFKA_ENABLED=false producer
-```
-
-## 카프카 ON/OFF 제어
-
-### 카프카 비활성화
-```bash
-# docker-compose.yml에서 환경변수 수정
-environment:
-  KAFKA_ENABLED: "false"
-
-# 또는 런타임 설정
-docker-compose run -e KAFKA_ENABLED=false producer python apps/seeders/realtime_generator.py
-```
-
-### 카프카 활성화
-```bash
-environment:
-  KAFKA_ENABLED: "true"
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: password
+  POSTGRES_DB: sesac_db
 ```
 
 ## 데이터베이스 작업
@@ -232,7 +283,17 @@ environment:
 docker-compose exec postgres psql -U postgres -d sesac_db
 
 # SQL 실행
-docker-compose exec postgres psql -U postgres -d sesac_db -c "SELECT COUNT(*) FROM users;"
+docker exec local_postgres psql -U postgres -d sesac_db -c "SELECT COUNT(*) FROM users;"
+```
+
+### Redis 접속
+```bash
+# Redis CLI 접속
+docker exec -it local_redis redis-cli
+
+# 캐시 데이터 확인
+docker exec local_redis redis-cli hlen cache:users
+docker exec local_redis redis-cli hlen cache:products
 ```
 
 ### DB 초기화
@@ -255,9 +316,11 @@ docker-compose stop
 
 # 특정 서비스 중지
 docker-compose stop producer
+docker-compose stop cache-worker
 
 # 재시작
 docker-compose restart producer
+docker-compose restart redis cache-worker
 
 # 중지 후 제거
 docker-compose down
@@ -267,54 +330,56 @@ docker-compose down
 
 ```bash
 # 1. 코드 수정 후 이미지 재빌드
-docker-compose build producer
+docker-compose build producer cache-worker
 
 # 2. 서비스 재시작
-docker-compose up -d producer
+docker-compose up -d producer cache-worker
 
 # 3. 로그 확인
-docker-compose logs -f producer
-```
-
-### 스케일링
-
-```bash
-# 컨슈머 수 동적 조정 (docker-compose scale은 deprecated)
-# 대신 docker-compose.yml에서 replicas 사용 (docker swarm mode)
-
-# 또는 수동으로 추가 인스턴스 실행
-docker-compose run -d --name user-consumer-4 \
-  -e CONSUMER_ID=user_consumer_4 \
-  user-consumer-1 python kafka/consumers/user_consumer.py --id user_consumer_4
+docker-compose logs -f producer cache-worker
 ```
 
 ## 문제 해결
+
+### Redis 캐시 문제
+
+```bash
+# Redis 상태 확인
+docker exec local_redis redis-cli ping
+
+# 캐시 데이터 확인
+docker exec local_redis redis-cli hlen cache:users
+docker exec local_redis redis-cli hlen cache:products
+
+# Redis 재시작
+docker-compose restart redis cache-worker redis-monitor
+```
 
 ### 컨테이너가 시작되지 않을 때
 
 ```bash
 # 로그 확인
 docker-compose logs producer
+docker-compose logs cache-worker
 
 # 에러 메시지 확인
 docker-compose ps
 
 # 컨테이너 재생성
-docker-compose up -d --force-recreate producer
+docker-compose up -d --force-recreate producer cache-worker
 ```
 
-### 카프카 연결 실패
+### Kafka 연결 실패
 
 ```bash
-# 카프카 브로커 상태 확인
+# Kafka 브로커 상태 확인
 docker-compose ps kafka1 kafka2 kafka3
 
-# 카프카 재시작
+# Kafka 재시작
 docker-compose restart kafka1 kafka2 kafka3
 
 # 네트워크 확인
 docker network ls
-docker network inspect deploy_default
 ```
 
 ### DB 연결 실패
@@ -346,25 +411,30 @@ docker builder prune
 ## 전체 플로우
 
 ```bash
+cd deploy
+
 # 1. 이미지 빌드
 docker-compose build
 
-# 2. 전체 서비스 시작 (인프라 + 초기화 + 앱)
+# 2. 모든 서비스 시작
 docker-compose up -d
 
-# 3. 초기 데이터 생성 (필요시)
-docker-compose up initial-seeder
+# 3. 서비스 상태 확인
+docker-compose ps
 
-# 4. 모니터링
-docker-compose logs -f
+# 4. Redis 캐시 모니터링
+docker logs -f redis_monitor
 
-# 5. 웹 UI 접속
-# - Kafka UI: http://localhost:8080
-# - Grafana: http://localhost:3000
-# - Adminer: http://localhost:8081
+# 5. Producer 로그 확인
+docker logs -f realtime_producer
+
+# 6. Consumer 상태 확인
+docker exec kafka1 kafka-consumer-groups \
+  --bootstrap-server kafka1:29092 \
+  --describe --group orders_group
 ```
 
-## 참고 사항
+## 볼륨
 
 ### depends_on의 한계
 `depends_on`은 컨테이너 시작 순서만 보장하며, 서비스가 준비되었는지는 보장하지 않습니다.
@@ -385,6 +455,7 @@ docker-compose logs -f
 - `postgres_data`: PostgreSQL 데이터
 - `kafka1_data`, `kafka2_data`, `kafka3_data`: 카프카 데이터
 - `grafana_data`: Grafana 대시보드 설정
+- `redis_data`: Redis 데이터 (AOF 영속성)
 
 ## 추가 명령어
 
@@ -396,12 +467,12 @@ docker-compose down -v
 docker-compose build --no-cache
 
 # 특정 서비스만 재빌드
-docker-compose build producer
+docker-compose build producer cache-worker
 
 # 서비스 로그를 파일로 저장
 docker-compose logs producer > producer.log
 
 # 실행 중인 컨테이너에서 명령 실행
 docker-compose exec producer python --version
-docker-compose exec kafka1 kafka-topics --list --bootstrap-server localhost:9092
+docker exec local_redis redis-cli info
 ```

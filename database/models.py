@@ -16,7 +16,7 @@ class Product(Base):
     price = Column(Integer, nullable=False, comment="단가")
     discount_rate = Column(Float, nullable=True, comment="할인율 (할인율 분석용)")
     description = Column(Text, nullable=True, comment="상품 설명")
-    
+
     brand = Column(String(100), nullable=True, index=True, comment="브랜드") # 브랜드별 분석용 인덱스
     stock = Column(Integer, default=0, comment="재고")
     
@@ -26,6 +26,7 @@ class Product(Base):
     is_best = Column(String(1), default="N", comment="베스트 상품 여부")
     
     created_at = Column(DateTime, default=datetime.now, comment="등록일")
+    last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
 
     orders = relationship("Order", back_populates="product")
 
@@ -40,10 +41,10 @@ class User(Base):
     gender = Column(String(10), nullable=True, comment="성별 (M, F)")
     age = Column(Integer, nullable=True, comment="나이")
     birth_year = Column(Integer, nullable=True, comment="출생년도")
-    
+
     address = Column(String(255), nullable=True, comment="전체 주소")
     address_district = Column(String(100), nullable=True, index=True, comment="주소 (구 단위)") # 지역별 분석용 인덱스
-    
+
     email = Column(String(100), nullable=True, comment="이메일")
     grade = Column(String(20), nullable=True, comment="멤버십 등급")
     
@@ -53,6 +54,7 @@ class User(Base):
     marketing_agree = Column(String(5), default="false", comment="마케팅 동의 여부")
     
     created_at = Column(DateTime, default=datetime.now, comment="가입일")
+    last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
 
     orders = relationship("Order", back_populates="user")
 

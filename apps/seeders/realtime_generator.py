@@ -3,6 +3,7 @@
 
 - 주문 데이터: 2~8초 간격으로 1~5건씩 생성 (무한 루프)
 - 상품 데이터: 10~20초 간격으로 100건씩 생성 (무한 루프)
+- Redis 캐시에서 유저/상품 데이터를 가져와서 주문 생성
 """
 
 import os
@@ -15,8 +16,9 @@ from datetime import datetime
 
 # 프로젝트 루트를 sys.path에 추가
 current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
+project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from sqlalchemy.orm import Session
 from database import database, models
@@ -26,6 +28,10 @@ from collect.order_generator import OrderGenerator
 # Kafka Producer import
 from kafka.producer import KafkaProducer
 from kafka.config import KAFKA_TOPIC_ORDERS, KAFKA_TOPIC_PRODUCTS
+
+# Redis Cache import
+from cache.client import get_redis_client
+from cache.config import REDIS_ENABLED
 
 
 class RealtimeDataGenerator:
@@ -44,31 +50,41 @@ class RealtimeDataGenerator:
 
     def generate_orders_continuously(self):
         """주문 데이터를 지속적으로 생성 (2~8초 간격, 1~5건씩) - Kafka에만 발행"""
-        db = database.SessionLocal()
         order_generator = OrderGenerator()
         kafka_producer = KafkaProducer()
+        redis_client = get_redis_client()
 
-        print("🚀 주문 데이터 생성 스레드 시작 (Kafka 발행 모드)...")
-        
-        # [최적화 1] DB 조회를 루프 밖으로 뺌 (캐싱)
-        # 데이터가 너무 많으면 .limit(1000) 등으로 제한하세요.
-        try:
-            print("⏳ 유저/상품 데이터 캐싱 중...")
-            users = db.query(models.User).all()
-            products = db.query(models.Product).all()
-            
-            if not users or not products:
-                print("⚠️ 데이터 없음. 시드 데이터부터 넣으세요.")
-                return
-            print(f"✅ 캐싱 완료: 유저 {len(users)}명, 상품 {len(products)}개")
-            
-        except Exception as e:
-            print(f"❌ 초기 DB 로드 실패: {e}")
+        print("🚀 주문 데이터 생성 스레드 시작 (Redis 캐시 + Kafka 발행 모드)...")
+
+        # Redis 연결 대기
+        retry_count = 0
+        while not redis_client.is_connected() and retry_count < 10:
+            print(f"⏳ Redis 연결 대기 중... ({retry_count + 1}/10)")
+            time.sleep(3)
+            redis_client.reconnect()
+            retry_count += 1
+
+        if not redis_client.is_connected():
+            print("❌ Redis 연결 실패. 주문 생성을 시작할 수 없습니다.")
             return
-        
 
         try:
             while self.running:
+                # 1. Redis 캐시에서 유저와 상품 가져오기
+                try:
+                    user = redis_client.get_random_user()
+                    product = redis_client.get_random_product()
+
+                    if not user or not product:
+                        print("⚠️ Redis 캐시에 데이터가 없습니다. cache-worker가 실행 중인지 확인하세요.")
+                        time.sleep(5)
+                        continue
+
+                except Exception as e:
+                    print(f"❌ Redis 조회 실패: {e}")
+                    time.sleep(5)
+                    continue
+
                 # 2. 랜덤 개수 결정 (1~5건)
                 # 10% 확률로 '피크 타임' 발생 (주문량 5배 폭증)
                 is_peak_time = random.random() < 0.1 
@@ -88,18 +104,26 @@ class RealtimeDataGenerator:
 
                 for _ in range(order_count):
                     try:
-                        user = random.choice(users)
-                        product = random.choice(products)
+                        # 각 주문마다 새로운 랜덤 유저/상품 선택
+                        user = redis_client.get_random_user()
+                        product = redis_client.get_random_product()
+
+                        if not user or not product:
+                            failed_count += 1
+                            continue
+
                         order_data = order_generator.generate_order(user, product)
 
                         # order_id 생성 (UUID)
                         order_data['order_id'] = str(uuid.uuid4())
 
-                        # 역정규화 데이터 추가
-                        order_data['category'] = product.category
-                        order_data['user_region'] = user.address.split()[0] if user.address else "Unknown"
-                        order_data['user_gender'] = user.gender
-                        order_data['user_age_group'] = f"{user.age // 10 * 10}대" if user.age else "Unknown"
+                        # 역정규화 데이터 추가 (Redis에서 가져온 데이터는 dict)
+                        order_data['category'] = product.get('category', 'Unknown')
+                        user_address = user.get('address', '')
+                        order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
+                        order_data['user_gender'] = user.get('gender', 'Unknown')
+                        user_age = user.get('age')
+                        order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
                         order_data['created_at'] = datetime.now()
 
                         # Kafka에만 발행 (DB 저장은 Consumer가 담당)
@@ -138,7 +162,6 @@ class RealtimeDataGenerator:
             traceback.print_exc()
         finally:
             kafka_producer.flush()
-            db.close()
             print("🛑 주문 데이터 생성 스레드 종료")
 
     def generate_products_continuously(self):
@@ -234,12 +257,12 @@ class RealtimeDataGenerator:
         """실시간 데이터 생성 시작"""
         print("""
     ╔════════════════════════════════════════════════════════════╗
-    ║            실시간 데이터 생성 시뮬레이터                    ║
+    ║      실시간 데이터 생성 시뮬레이터 (Redis 캐시 모드)        ║
     ╚════════════════════════════════════════════════════════════╝
         """)
 
         print("📋 생성 규칙:")
-        print("  - 🛒 주문: 2~8초 간격으로 1~5건씩 생성")
+        print("  - 🛒 주문: 2~8초 간격으로 1~5건씩 생성 (Redis 캐시에서 유저/상품 조회)")
         print("  - 📦 상품: 10~20초 간격으로 100건씩 생성")
         print("  - Ctrl+C로 중지\n")
 
