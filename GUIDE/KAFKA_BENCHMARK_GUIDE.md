@@ -4,6 +4,28 @@
 
 이 도구는 **동일한 조건**에서 카프카 활성화/비활성화 시 데이터 처리 성능을 비교합니다.
 
+### 시스템 아키텍처 (Redis 캐싱 + Aging)
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
+│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+      ┌────────────────────────────────────────┘
+      ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Producer   │────▶│   Kafka     │────▶│  Consumers  │
+│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │ PostgreSQL  │
+                                        │   (저장)    │
+                                        └─────────────┘
+```
+
 ## 주요 기능
 
 - ✅ 카프카 ON/OFF 자동 전환
@@ -13,6 +35,17 @@
 - ✅ 성능 개선율 분석
 - ✅ 결과를 CSV 파일로 저장
 - ✅ 콘솔에 표 형태로 리포트 출력
+
+## Redis 캐싱 성능 향상
+
+벤치마크 도입 전, Redis 캐싱 기법 적용으로 다음과 같은 성능 향상을 달성했습니다:
+
+| 지표 | Before (DB 직접) | After (Redis 캐시) | 개선율 |
+|------|------------------|-------------------|--------|
+| DB 쿼리/분 | ~60회 | ~1.2회 | 98% 감소 |
+| 조회 속도 | 10-100ms | 0.1-1ms | 100배 향상 |
+
+**Redis 캐싱 + Aging 기법**을 통해 대용량 데이터 환경에서도 효율적인 데이터 조회가 가능합니다.
 
 ## 설치
 
@@ -28,15 +61,22 @@ pip install tabulate
 pip install -r requirements.txt
 ```
 
-### 2. 카프카 서버 실행 (선택사항)
-
-카프카 ON 테스트를 진행하려면 카프카 서버가 실행 중이어야 합니다.
+### 2. 전체 시스템 시작 (권장)
 
 ```bash
-# Docker Compose 사용 시
+cd deploy
+docker-compose build
 docker-compose up -d
+```
 
-# 또는 카프카를 수동으로 실행
+### 3. 카프카 서버 확인
+
+```bash
+# 브로커 상태 확인
+docker-compose ps kafka1 kafka2 kafka3
+
+# Redis 캐시 상태 확인
+docker logs -f redis_monitor
 ```
 
 ## 사용 방법
@@ -133,6 +173,13 @@ timestamp,entity,count,kafka_status,success,failed,duration,tps
 2. **카프카 장점**: 대량 데이터 처리 시 배치 처리, 압축, 비동기 처리의 이점이 나타날 수 있습니다.
 3. **실제 이점**: 카프카의 진정한 가치는 속도보다 **데이터 스트리밍**, **이벤트 소싱**, **마이크로서비스 간 통신** 등에 있습니다.
 
+### Redis 캐싱 효과
+
+벤치마크 결과와 별개로, Redis 캐싱 도입으로 다음과 같은 이점이 있습니다:
+- **DB 부하 98% 감소**: 50초마다 1회만 DB 쿼리
+- **조회 속도 100배 향상**: Redis HRANDFIELD로 랜덤 조회
+- **스케일링 용이**: 데이터 양이 증가해도 일정한 조회 성능
+
 ## 트러블슈팅
 
 ### 카프카 연결 실패
@@ -140,14 +187,39 @@ timestamp,entity,count,kafka_status,success,failed,duration,tps
 카프카 ON 테스트에서 연결 오류 발생 시:
 
 1. 카프카 서버가 실행 중인지 확인
+```bash
+docker-compose ps kafka1 kafka2 kafka3
+```
+
 2. `.env` 파일의 `KAFKA_BOOTSTRAP_SERVERS` 확인
+
 3. 네트워크 연결 확인
+```bash
+python kafka/test_connection.py
+```
 
 ### DB 연결 실패
 
 ```bash
 # PostgreSQL이 실행 중인지 확인
-docker-compose ps
+docker-compose ps postgres
+
+# 연결 테스트
+docker exec local_postgres psql -U postgres -d sesac_db -c "SELECT 1;"
+```
+
+### Redis 캐시 문제
+
+```bash
+# Redis 상태 확인
+docker exec local_redis redis-cli ping
+
+# 캐시 데이터 확인
+docker exec local_redis redis-cli hlen cache:users
+docker exec local_redis redis-cli hlen cache:products
+
+# Cache Worker 로그 확인
+docker logs cache_worker
 ```
 
 ### 메모리 부족
@@ -208,3 +280,24 @@ print(tabulate(table_data, headers=headers, tablefmt='fancy_grid'))  # 다른 �
 
 3. **실제 운영 환경**
    - 카프카는 처리 속도보다 **확장성**, **안정성**, **이벤트 추적**에서 가치 제공
+
+4. **Redis 캐싱 도입 후**
+   - DB 조회 병목 해소
+   - 대용량 데이터에서도 일정한 조회 성능
+   - Producer가 Redis에서 빠르게 랜덤 데이터 조회
+
+## 벤치마크 실행 전 체크리스트
+
+- [ ] Docker Compose로 전체 서비스 실행
+- [ ] `docker-compose ps`로 모든 컨테이너 상태 확인
+- [ ] Redis Monitor 로그 확인 (`docker logs -f redis_monitor`)
+- [ ] 캐시 데이터 확인 (`docker exec local_redis redis-cli hlen cache:users`)
+- [ ] 초기 데이터 생성 완료 확인
+- [ ] 벤치마크 실행: `python apps/benchmarks/kafka_comparison.py`
+
+## 참고 자료
+
+- **[KAFKA_PRODUCER_GUIDE.md](KAFKA_PRODUCER_GUIDE.md)** - Producer 가이드 (Redis 캐시 모드)
+- **[KAFKA_CONSUMER_GUIDE.md](KAFKA_CONSUMER_GUIDE.md)** - Consumer 가이드
+- **[KAFKA_SETUP_GUIDE.md](KAFKA_SETUP_GUIDE.md)** - Kafka 클러스터 설정
+- **[DOCKER_DEPLOYMENT_GUIDE.md](DOCKER_DEPLOYMENT_GUIDE.md)** - Docker 배포

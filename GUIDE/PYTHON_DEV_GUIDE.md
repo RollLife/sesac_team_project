@@ -4,13 +4,36 @@
 
 `python-dev` 컨테이너는 Docker 환경에서 Python 코드를 대화형으로 테스트하고 개발할 수 있는 환경을 제공합니다.
 
+### 시스템 아키텍처 (Redis 캐싱 + Aging)
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
+│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+      ┌────────────────────────────────────────┘
+      ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Producer   │────▶│   Kafka     │────▶│  Consumers  │
+│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │ PostgreSQL  │
+                                        │   (저장)    │
+                                        └─────────────┘
+```
+
 ## 주요 기능
 
-- ✅ PostgreSQL, Kafka 연결 테스트
+- ✅ PostgreSQL, Kafka, **Redis** 연결 테스트
 - ✅ Python 대화형 쉘 (REPL)
 - ✅ 스크립트 실행 및 디버깅
 - ✅ 코드 변경 실시간 반영 (볼륨 마운트)
 - ✅ 환경 확인 및 검증
+- ✅ **Redis 캐시 클라이언트 테스트**
 
 ## 시작하기
 
@@ -57,6 +80,8 @@ python tests/test_environment.py
 ✅ POSTGRES_HOST = postgres
 ✅ POSTGRES_PORT = 5432
 ✅ KAFKA_BOOTSTRAP_SERVERS = kafka1:29092,kafka2:29093,kafka3:29094
+✅ REDIS_HOST = redis
+✅ REDIS_PORT = 6379
 
 ...
 
@@ -69,9 +94,10 @@ python tests/test_environment.py
 ✅ PostgreSQL: 성공
 ✅ Kafka 연결: 성공
 ✅ Kafka Producer: 성공
+✅ Redis 연결: 성공
 ✅ 데이터 생성기: 성공
 
-✅ 모든 테스트 통과! (6/6)
+✅ 모든 테스트 통과! (7/7)
 ✅ 환경이 정상적으로 구성되었습니다! 🎉
 ```
 
@@ -100,6 +126,53 @@ print(f'토픽 수: {len(metadata.topics)}')
 "
 ```
 
+#### Redis 연결 확인
+```bash
+docker-compose exec python-dev python -c "
+from cache.client import get_redis_client
+client = get_redis_client()
+if client.is_connected():
+    print('Redis 연결 성공!')
+    user = client.get_random_user()
+    print(f'랜덤 유저: {user}')
+"
+```
+
+## Redis 캐시 클라이언트 테스트
+
+### 기본 사용법
+
+```python
+# Python 쉘에서
+from cache.client import get_redis_client
+
+# 클라이언트 가져오기 (싱글톤)
+redis_client = get_redis_client()
+
+# 연결 상태 확인
+if redis_client.is_connected():
+    print("Redis 연결됨")
+
+# 랜덤 유저 조회
+user = redis_client.get_random_user()
+print(user)  # {'user_id': 'u_123', 'name': '홍길동', ...}
+
+# 랜덤 상품 조회
+product = redis_client.get_random_product()
+print(product)  # {'product_id': 'p_456', 'name': '무선 이어폰', ...}
+```
+
+### 캐시 상태 확인
+
+```bash
+# Redis CLI로 캐시 확인
+docker exec local_redis redis-cli hlen cache:users
+docker exec local_redis redis-cli hlen cache:products
+
+# 샘플 데이터 조회
+docker exec local_redis redis-cli hrandfield cache:users 1 withvalues
+```
+
 ## Python 대화형 쉘 (REPL)
 
 ### Python 쉘 실행
@@ -123,6 +196,14 @@ docker-compose exec python-dev python
 >>> for user in users:
 ...     print(user.name, user.email)
 >>> db.close()
+
+# Redis 캐시 테스트
+>>> from cache.client import get_redis_client
+>>> redis_client = get_redis_client()
+>>> user = redis_client.get_random_user()
+>>> print(f"랜덤 유저: {user['name']}, {user['region']}")
+>>> product = redis_client.get_random_product()
+>>> print(f"랜덤 상품: {product['name']}, {product['price']}원")
 
 # Kafka Producer 테스트
 >>> from kafka.producer import KafkaProducer
@@ -171,6 +252,9 @@ docker-compose exec python-dev python kafka/admin/setup_topics.py
 
 # 초기 데이터 생성
 docker-compose exec python-dev python apps/seeders/initial_seeder.py
+
+# Redis 캐시 워커 테스트 (한 번만 실행)
+docker-compose exec python-dev python cache/cache_worker.py --once
 ```
 
 ### 커스텀 스크립트 실행
@@ -205,6 +289,10 @@ with engine.connect() as conn:
     # 주문 수 확인
     result = conn.execute(text('SELECT COUNT(*) FROM orders'))
     print(f'주문 수: {result.fetchone()[0]:,}')
+
+    # 캐시되지 않은 유저 수 확인
+    result = conn.execute(text('SELECT COUNT(*) FROM users WHERE last_cached_at IS NULL'))
+    print(f'캐시 안된 유저: {result.fetchone()[0]:,}')
 "
 ```
 
@@ -275,6 +363,47 @@ success = producer.send_event(
 print(f'메시지 발행: {\"성공\" if success else \"실패\"}')
 producer.flush()
 producer.close()
+"
+```
+
+## Redis 작업
+
+### 캐시 상태 확인
+
+```bash
+docker-compose exec python-dev python -c "
+from cache.client import get_redis_client
+
+client = get_redis_client()
+if client.is_connected():
+    print('Redis 연결 성공!')
+
+    # 캐시된 유저 수
+    import redis
+    r = redis.Redis(host='redis', port=6379, decode_responses=True)
+    users_count = r.hlen('cache:users')
+    products_count = r.hlen('cache:products')
+
+    print(f'캐시된 유저: {users_count}')
+    print(f'캐시된 상품: {products_count}')
+"
+```
+
+### 랜덤 데이터 조회 테스트
+
+```bash
+docker-compose exec python-dev python -c "
+from cache.client import get_redis_client
+
+client = get_redis_client()
+
+# 5명의 랜덤 유저 조회
+for i in range(5):
+    user = client.get_random_user()
+    if user:
+        print(f'{i+1}. {user[\"name\"]} ({user[\"region\"]})')
+    else:
+        print(f'{i+1}. 캐시에 데이터 없음')
 "
 ```
 
@@ -356,6 +485,12 @@ docker-compose exec python-dev python -c "from database.database import engine; 
 # Kafka 연결만 테스트
 docker-compose exec python-dev python kafka/test_connection.py
 
+# Redis 연결만 테스트
+docker-compose exec python-dev python -c "
+from cache.client import get_redis_client
+print(f'Redis 연결: {get_redis_client().is_connected()}')
+"
+
 # 데이터 생성기 테스트
 docker-compose exec python-dev python -c "
 from collect.user_generator import UserGenerator
@@ -387,6 +522,14 @@ orders = db.query(models.Order).order_by(desc(models.Order.created_at)).limit(5)
 for order in orders:
     print(f'{order.order_id}: {order.total_amount:,}원')
 db.close()
+"
+
+# Redis 캐시 상태
+docker-compose exec python-dev python -c "
+import redis
+r = redis.Redis(host='redis', port=6379, decode_responses=True)
+print(f'캐시된 유저: {r.hlen(\"cache:users\")}')
+print(f'캐시된 상품: {r.hlen(\"cache:products\")}')
 "
 ```
 
@@ -436,6 +579,18 @@ docker-compose build --no-cache python-dev
 docker-compose up -d python-dev
 ```
 
+### Redis 연결 실패 시
+```bash
+# Redis 서비스 상태 확인
+docker-compose ps redis
+
+# Redis 재시작
+docker-compose restart redis
+
+# 연결 테스트
+docker exec local_redis redis-cli ping
+```
+
 ## 정리
 
 ### 컨테이너 종료
@@ -465,6 +620,14 @@ docker-compose --profile dev down
 - 💻 대화형 쉘 (REPL)
 - 🔧 스크립트 실행 및 디버깅
 - 📝 코드 변경 실시간 반영
-- ✅ PostgreSQL, Kafka 연결 검증
+- ✅ PostgreSQL, Kafka, **Redis** 연결 검증
+- 🚀 **Redis 캐시 클라이언트 테스트**
 
-**개발, 테스트, 디버깅을 위한 완벽한 환경!** 🚀
+**개발, 테스트, 디버깅을 위한 완벽한 환경!**
+
+## 참고 자료
+
+- **[KAFKA_PRODUCER_GUIDE.md](KAFKA_PRODUCER_GUIDE.md)** - Producer 가이드 (Redis 캐시 모드)
+- **[KAFKA_CONSUMER_GUIDE.md](KAFKA_CONSUMER_GUIDE.md)** - Consumer 가이드
+- **[DB_README.md](DB_README.md)** - DB 구조 및 ORM 가이드
+- **[DOCKER_DEPLOYMENT_GUIDE.md](DOCKER_DEPLOYMENT_GUIDE.md)** - Docker 배포

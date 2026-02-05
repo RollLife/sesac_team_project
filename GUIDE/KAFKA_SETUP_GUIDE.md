@@ -1,5 +1,31 @@
 # 카프카 클러스터 설정 가이드
 
+## 개요
+
+Kafka 클러스터 + Redis 캐싱 시스템의 전체 구성 가이드입니다.
+
+### 시스템 아키텍처 (Redis 캐싱 + Aging)
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
+│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+      ┌────────────────────────────────────────┘
+      ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Producer   │────▶│   Kafka     │────▶│  Consumers  │
+│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │ PostgreSQL  │
+                                        │   (저장)    │
+                                        └─────────────┘
+```
+
 ## 클러스터 구성
 
 ### 브로커 구성
@@ -16,12 +42,24 @@
 
 ## 설치 및 실행
 
-### 1. 카프카 클러스터 시작
+### 1. 전체 시스템 시작 (권장)
 
 ```bash
-# Docker Compose로 전체 서비스 시작
+cd deploy
+
+# 1. 도커 이미지 빌드
+docker-compose build
+
+# 2. 모든 서비스 시작
 docker-compose up -d
 
+# 3. 서비스 상태 확인
+docker-compose ps
+```
+
+### 2. 카프카 클러스터만 시작
+
+```bash
 # 카프카 브로커만 시작
 docker-compose up -d kafka1 kafka2 kafka3
 
@@ -29,7 +67,7 @@ docker-compose up -d kafka1 kafka2 kafka3
 docker-compose logs -f kafka1 kafka2 kafka3
 ```
 
-### 2. 브로커 상태 확인
+### 3. 브로커 상태 확인
 
 ```bash
 # 모든 컨테이너 상태 확인
@@ -41,7 +79,7 @@ docker-compose logs kafka2
 docker-compose logs kafka3
 ```
 
-### 3. 토픽 초기화
+### 4. 토픽 초기화
 
 ```bash
 # 토픽 생성 (파티션 3개, 복제 팩터 3)
@@ -52,11 +90,11 @@ python kafka/admin/setup_topics.py --delete
 python kafka/admin/setup_topics.py
 ```
 
-### 4. Kafka UI에서 확인
+### 5. 모니터링 UI 확인
 
-브라우저에서 접속:
 ```
-http://localhost:8080
+Kafka UI: http://localhost:8080
+Adminer: http://localhost:8081
 ```
 
 확인 사항:
@@ -130,6 +168,40 @@ partition = hash(key) % num_partitions
 - 자동으로 다른 브로커가 리더로 승격
 - 서비스 중단 없이 계속 동작
 
+## Redis 캐싱 설정
+
+### Cache Worker 환경변수
+
+```yaml
+# docker-compose.yml
+cache-worker:
+  environment:
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    CACHE_REFRESH_INTERVAL: 50      # 캐시 갱신 주기 (초)
+    CACHE_BATCH_SIZE: 1000          # 캐시 배치 크기
+    CACHE_NEW_DATA_RATIO: 0.5       # 신규 데이터 비율 (50%)
+```
+
+### Redis Monitor 환경변수
+
+```yaml
+redis-monitor:
+  environment:
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    REDIS_MONITOR_INTERVAL: 1       # 모니터링 간격 (초)
+    CACHE_REFRESH_INTERVAL: 50      # 캐시 갱신 주기 (초)
+```
+
+### 캐싱 성능 향상
+
+| 지표 | Before (DB 직접) | After (Redis 캐시) |
+|------|------------------|-------------------|
+| DB 쿼리/분 | ~60회 | ~1.2회 |
+| 조회 속도 | 10-100ms | 0.1-1ms |
+| 개선율 | - | 98% 감소, 100배 향상 |
+
 ## 성능 튜닝
 
 ### Producer 설정 (kafka/config.py)
@@ -163,6 +235,16 @@ KAFKA_CONFIG = {
 
 ## 모니터링
 
+### Redis 캐시 모니터링
+
+```bash
+# Redis Monitor 로그 확인
+docker logs -f redis_monitor
+
+# 출력 예시:
+# [11:45:35] [15/50s ######--------------] | MEM: 2.25M | HIT: 100.0% | CACHE: users=1000, products=1000 | 교체: 1회
+```
+
 ### Kafka UI 대시보드
 - URL: http://localhost:8080
 - 브로커 상태, 토픽 상세 정보, 메시지 확인 가능
@@ -183,6 +265,20 @@ docker exec kafka1 kafka-consumer-groups --bootstrap-server localhost:9092 --lis
 docker exec kafka1 kafka-run-class kafka.tools.GetOffsetShell \
   --broker-list localhost:9092 \
   --topic users
+```
+
+### Redis 모니터링
+
+```bash
+# Redis 상태 확인
+docker exec local_redis redis-cli ping
+
+# 캐시 데이터 확인
+docker exec local_redis redis-cli hlen cache:users
+docker exec local_redis redis-cli hlen cache:products
+
+# 메모리 사용량
+docker exec local_redis redis-cli info memory
 ```
 
 ## 트러블슈팅
@@ -221,15 +317,46 @@ docker exec kafka1 kafka-topics \
 2. ISR이 최소 2개인지 (1개면 쓰기 실패)
 3. KAFKA_ENABLED=true로 설정되어 있는지
 
-## 벤치마크 테스트 전 체크리스트
+### Redis 캐시 문제
 
-- [ ] Docker Compose로 3개 브로커 모두 실행
-- [ ] `python kafka/admin/setup_topics.py`로 토픽 생성
-- [ ] Kafka UI에서 3개 토픽 확인
+```bash
+# Redis 연결 확인
+docker exec local_redis redis-cli ping
+
+# 캐시 데이터 확인
+docker exec local_redis redis-cli hlen cache:users
+docker exec local_redis redis-cli hlen cache:products
+
+# Cache Worker 로그 확인
+docker logs cache_worker
+
+# Redis 재시작
+docker-compose restart redis cache-worker redis-monitor
+```
+
+## 실행 전 체크리스트
+
+- [ ] Docker Compose로 전체 서비스 실행
+- [ ] `docker-compose ps`로 모든 컨테이너 상태 확인
+- [ ] Kafka UI에서 3개 토픽 확인 (http://localhost:8080)
 - [ ] 각 토픽이 파티션 3개, 복제 팩터 3인지 확인
 - [ ] `python kafka/test_connection.py`로 연결 테스트
-- [ ] 초기 데이터 생성: `python apps/seeders/initial_seeder.py`
-- [ ] 벤치마크 실행: `python apps/benchmarks/realtime_comparison.py`
+- [ ] Redis Monitor 로그 확인 (`docker logs -f redis_monitor`)
+- [ ] 캐시 데이터 확인 (`docker exec local_redis redis-cli hlen cache:users`)
+- [ ] Producer 로그 확인 (`docker logs -f realtime_producer`)
+
+## 포트 정보
+
+| 포트 | 서비스 | 설명 |
+|------|--------|------|
+| 9092 | kafka1 | Kafka 브로커 1 외부 포트 |
+| 9093 | kafka2 | Kafka 브로커 2 외부 포트 |
+| 9094 | kafka3 | Kafka 브로커 3 외부 포트 |
+| 29092, 29093, 29094 | kafka | 내부 통신 포트 |
+| 8080 | kafka-ui | Kafka UI |
+| 8081 | adminer | DB 관리 UI |
+| 5432 | postgres | PostgreSQL |
+| 6379 | redis | Redis 캐시 서버 |
 
 ## 참고 자료
 
@@ -238,10 +365,7 @@ docker exec kafka1 kafka-topics \
 - 메타데이터를 카프카 자체 로그로 관리
 - 더 간단한 운영, 더 빠른 시작
 
-### 포트 정보
-- 9092: kafka1 외부 접속 포트
-- 9093: kafka2 외부 접속 포트
-- 9094: kafka3 외부 접속 포트
-- 29092, 29093, 29094: 내부 통신 포트
-- 8080: Kafka UI
-- 5432: PostgreSQL
+### 관련 문서
+- **[KAFKA_PRODUCER_GUIDE.md](KAFKA_PRODUCER_GUIDE.md)** - Producer 가이드 (Redis 캐시 모드)
+- **[KAFKA_CONSUMER_GUIDE.md](KAFKA_CONSUMER_GUIDE.md)** - Consumer 가이드
+- **[DOCKER_DEPLOYMENT_GUIDE.md](DOCKER_DEPLOYMENT_GUIDE.md)** - Docker 배포

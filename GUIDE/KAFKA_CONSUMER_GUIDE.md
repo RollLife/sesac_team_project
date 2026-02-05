@@ -4,6 +4,36 @@
 
 3개 컨슈머 그룹, 총 9개 컨슈머 인스턴스로 구성된 카프카 컨슈머 클러스터입니다.
 
+**Consumer는 Kafka 토픽에서 메시지를 소비하여 PostgreSQL에 저장하는 역할을 담당합니다.**
+
+### 시스템 아키텍처 (Redis 캐싱 + Aging)
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
+│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+      ┌────────────────────────────────────────┘
+      ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Producer   │────▶│   Kafka     │────▶│  Consumers  │
+│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                                               ▼
+                                        ┌─────────────┐
+                                        │ PostgreSQL  │
+                                        │   (저장)    │
+                                        └─────────────┘
+```
+
+### Consumer의 역할
+- ✅ Kafka 토픽에서 메시지 소비
+- ✅ 메시지 역직렬화 (JSON → dict)
+- ✅ 중복 체크 후 PostgreSQL 저장
+- ✅ 오프셋 수동 커밋 (At-least-once 보장)
+
 ## 컨슈머 구성
 
 ### 컨슈머 그룹
@@ -56,7 +86,23 @@
 
 ## 실행 방법
 
-### 1. 전체 컨슈머 실행 (9개)
+### Docker 실행 (권장)
+
+```bash
+cd deploy
+
+# 전체 시스템 시작 (Consumer 포함)
+docker-compose up -d
+
+# Consumer 로그 확인
+docker logs -f order_consumer_1
+docker logs -f user_consumer_1
+docker logs -f product_consumer_1
+```
+
+### 로컬 실행
+
+#### 1. 전체 컨슈머 실행 (9개)
 
 ```bash
 python apps/runners/consumer_runner.py
@@ -80,7 +126,7 @@ python apps/runners/consumer_runner.py
    Ctrl+C로 종료
 ```
 
-### 2. 단일 컨슈머 실행 (테스트용)
+#### 2. 단일 컨슈머 실행 (테스트용)
 
 ```bash
 # 유저 컨슈머 1개만 실행
@@ -93,7 +139,7 @@ python apps/runners/consumer_runner.py --single --type product --id product_cons
 python apps/runners/consumer_runner.py --single --type order --id order_consumer_1
 ```
 
-### 3. 개별 컨슈머 실행
+#### 3. 개별 컨슈머 실행
 
 ```bash
 # 유저 컨슈머
@@ -108,14 +154,35 @@ python kafka/consumers/order_consumer.py --id order_consumer_3
 
 ## 메시지 처리 흐름
 
-### 1. 메시지 수신
+### 전체 데이터 흐름
+
+```
+1. Cache-Worker (50초마다)
+   └─ DB에서 Aging 기법으로 1,000건 조회
+   └─ Redis에 캐싱 (cache:users, cache:products)
+
+2. Producer (2~8초마다)
+   └─ Redis에서 랜덤 조회 (HRANDFIELD)
+   └─ 주문 데이터 생성
+   └─ Kafka 토픽에 발행 (DB 저장 X)
+
+3. Consumer (이 문서의 주제)
+   └─ Kafka에서 메시지 소비
+   └─ 중복 체크
+   └─ PostgreSQL에 저장
+   └─ 오프셋 커밋
+```
+
+### Consumer 상세 처리 흐름
+
+#### 1. 메시지 수신
 ```
 Kafka Topic (users)
   └─> user_consumer_1 (파티션 0)
       └─> 메시지 폴링 (poll)
 ```
 
-### 2. 역직렬화 (JSON)
+#### 2. 역직렬화 (JSON)
 ```python
 # Kafka 메시지 (bytes)
 b'{"user_id": "u123", "name": "홍길동", ...}'
@@ -129,7 +196,7 @@ b'{"user_id": "u123", "name": "홍길동", ...}'
 }
 ```
 
-### 3. 중복 체크
+#### 3. 중복 체크
 ```python
 # DB에 이미 존재하는지 확인
 existing_user = crud.get_user(db, data['user_id'])
@@ -139,7 +206,7 @@ if existing_user:
     return
 ```
 
-### 4. PostgreSQL 저장
+#### 4. PostgreSQL 저장
 ```python
 # 카프카 재발행 방지 (무한 루프 방지)
 crud_module.KAFKA_ENABLED = False
@@ -151,7 +218,7 @@ crud.create_user(db, data)
 crud_module.KAFKA_ENABLED = True
 ```
 
-### 5. 오프셋 커밋
+#### 5. 오프셋 커밋
 ```python
 # 성공 시 오프셋 커밋
 consumer.commit(message=message)
@@ -159,7 +226,7 @@ consumer.commit(message=message)
 
 ## 컨슈머 설정
 
-### 주요 설정 ([kafka/consumer.py](kafka/consumer.py))
+### 주요 설정 (kafka/consumer.py)
 
 ```python
 config = {
@@ -198,7 +265,8 @@ config = {
 ```
 ┌─────────────┐
 │  Producer   │ (apps/seeders/realtime_generator.py)
-│  데이터생성  │
+│ Redis 캐시  │ ← 주문 생성 시 Redis에서 유저/상품 조회
+│   조회      │
 └──────┬──────┘
        │
        ▼
@@ -228,6 +296,21 @@ config = {
 
 ## 모니터링
 
+### Consumer 로그 확인 (Docker)
+
+```bash
+# 주문 컨슈머 로그
+docker logs -f order_consumer_1
+docker logs -f order_consumer_2
+docker logs -f order_consumer_3
+
+# 유저 컨슈머 로그
+docker logs -f user_consumer_1
+
+# 상품 컨슈머 로그
+docker logs -f product_consumer_1
+```
+
 ### 컨슈머 그룹 상태 확인
 
 ```bash
@@ -236,19 +319,19 @@ docker exec kafka1 kafka-consumer-groups \
   --bootstrap-server localhost:9092 \
   --list
 
-# users_group 상세 정보
+# orders_group 상세 정보
 docker exec kafka1 kafka-consumer-groups \
   --bootstrap-server localhost:9092 \
   --describe \
-  --group users_group
+  --group orders_group
 ```
 
 출력 예시:
 ```
 GROUP           TOPIC      PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
-users_group     users      0          1000            1000            0
-users_group     users      1          1050            1050            0
-users_group     users      2          980             980             0
+orders_group    orders     0          1000            1000            0
+orders_group    orders     1          1050            1050            0
+orders_group    orders     2          980             980             0
 ```
 
 ### LAG 확인
@@ -256,7 +339,9 @@ users_group     users      2          980             980             0
 - **LAG > 0**: 처리되지 않은 메시지 존재
 
 ### Kafka UI에서 확인
+```
 http://localhost:8080
+```
 - Consumer Groups 탭
 - 각 그룹의 LAG, 오프셋 확인
 
@@ -273,10 +358,10 @@ python kafka/admin/setup_topics.py
 ```bash
 docker exec kafka1 kafka-consumer-groups \
   --bootstrap-server localhost:9092 \
-  --group users_group \
+  --group orders_group \
   --reset-offsets \
   --to-earliest \
-  --topic users \
+  --topic orders \
   --execute
 ```
 
@@ -284,6 +369,11 @@ docker exec kafka1 kafka-consumer-groups \
 ```bash
 # PostgreSQL 연결 테스트
 docker-compose ps postgres
+```
+
+4. **컨슈머 재시작**
+```bash
+docker-compose restart order-consumer-1 order-consumer-2 order-consumer-3
 ```
 
 ### 중복 데이터가 저장될 때
@@ -305,6 +395,20 @@ crud.create_user(db, data)
 crud_module.KAFKA_ENABLED = True
 ```
 
+### Consumer LAG이 계속 증가할 때
+
+1. **Consumer 성능 확인**
+```bash
+docker stats order_consumer_1 order_consumer_2 order_consumer_3
+```
+
+2. **DB 병목 확인**
+```bash
+docker exec local_postgres psql -U postgres -d sesac_db -c "SELECT count(*) FROM orders;"
+```
+
+3. **Consumer 스케일 업** (docker-compose.yml에서 인스턴스 추가)
+
 ## 성능 최적화
 
 ### 배치 처리
@@ -322,34 +426,48 @@ crud_module.KAFKA_ENABLED = True
 
 ## 전체 실행 순서
 
-### 1. 카프카 클러스터 시작
+### Docker 실행 (권장)
 ```bash
+cd deploy
 docker-compose up -d
 ```
 
-### 2. 토픽 생성
+### 로컬 실행
+
+#### 1. 카프카 클러스터 시작
+```bash
+docker-compose up -d kafka1 kafka2 kafka3
+```
+
+#### 2. 토픽 생성
 ```bash
 python kafka/admin/setup_topics.py
 ```
 
-### 3. 초기 데이터 생성
+#### 3. 초기 데이터 생성
 ```bash
 python apps/seeders/initial_seeder.py
 ```
 
-### 4. 컨슈머 시작
+#### 4. Cache Worker 시작
+```bash
+python cache/cache_worker.py
+```
+
+#### 5. 컨슈머 시작
 ```bash
 python apps/runners/consumer_runner.py
 ```
 
-### 5. 실시간 데이터 생성 (별도 터미널)
+#### 6. 실시간 데이터 생성 (별도 터미널)
 ```bash
 python apps/seeders/realtime_generator.py
 ```
 
-### 6. 모니터링
+#### 7. 모니터링
 - Kafka UI: http://localhost:8080
-- 로그 확인: 각 컨슈머 출력
+- Redis Monitor: `docker logs -f redis_monitor`
+- 컨슈머 로그: 각 컨슈머 출력
 
 ## 참고 사항
 
@@ -365,3 +483,9 @@ python apps/seeders/realtime_generator.py
 ### At-least-once vs Exactly-once
 - 현재 구현: **At-least-once** (중복 가능, 손실 없음)
 - Exactly-once 필요 시: Kafka Transactions 사용
+
+## 참고 자료
+
+- **[KAFKA_PRODUCER_GUIDE.md](KAFKA_PRODUCER_GUIDE.md)** - Producer 가이드 (Redis 캐시 모드)
+- **[KAFKA_SETUP_GUIDE.md](KAFKA_SETUP_GUIDE.md)** - Kafka 클러스터 설정
+- **[DOCKER_DEPLOYMENT_GUIDE.md](DOCKER_DEPLOYMENT_GUIDE.md)** - Docker 배포
