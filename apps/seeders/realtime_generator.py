@@ -28,6 +28,7 @@ from collect.order_generator import OrderGenerator
 from collect.scenario_engine import (
     ScenarioEngine, DEFAULT_CONFIG, BASELINE_CONFIG,
     estimate_duration_minutes, get_hourly_multiplier,
+    get_time_based_scenario_number,
 )
 
 # Kafka Producer import
@@ -62,6 +63,7 @@ class RealtimeDataGenerator:
         self.scenario_number = None          # 현재 시나리오 번호 (None = 기본 패턴)
         self.scenario_start_time = None      # 시나리오 시작 시각 (time.time)
         self.scenario_duration = None        # 시나리오 지속 시간 (초)
+        self.last_checked_hour = None        # 시간대 자동 전환용
 
     # ========================================
     # 시나리오 타이머 관리
@@ -81,13 +83,24 @@ class RealtimeDataGenerator:
         print(f"\n🔄 시나리오 {number} ({config['description']}) 적용됨 (⏱️ ~{duration_min}분)\n")
 
     def _revert_to_baseline(self):
-        """기본 패턴으로 복귀"""
+        """기본 패턴으로 복귀 (시간대별 자동 시나리오 적용)"""
+        time_scenario_num = get_time_based_scenario_number()
+
         with self.lock:
-            self.scenario_config = BASELINE_CONFIG.copy()
-            self.scenario_number = None
             self.scenario_start_time = None
             self.scenario_duration = None
-        print("\n⏰ 시나리오 타이머 종료 → 기본 패턴으로 복귀합니다.\n")
+
+            if time_scenario_num is not None:
+                # 시간대별 자동 시나리오 적용
+                self.scenario_config = self.scenario_engine.get_time_based_config()
+                self.scenario_number = None  # 수동 시나리오 아님
+                desc = self.scenario_config.get('description', '')
+                print(f"\n⏰ 시나리오 타이머 종료 → {desc}\n")
+            else:
+                # 순수 기본 패턴
+                self.scenario_config = BASELINE_CONFIG.copy()
+                self.scenario_number = None
+                print("\n⏰ 시나리오 타이머 종료 → 기본 패턴으로 복귀합니다.\n")
 
     def _check_scenario_timer(self):
         """타이머 만료 시 기본 패턴으로 자동 복귀"""
@@ -106,6 +119,41 @@ class RealtimeDataGenerator:
             return None
         remaining = self.scenario_duration - (time.time() - self.scenario_start_time)
         return max(0, remaining)
+
+    def _check_time_based_scenario(self):
+        """
+        시간대가 바뀌면 자동으로 시나리오 전환
+        - 수동 시나리오(타이머 있음)가 실행 중이면 무시
+        - 시간대별 자동 시나리오만 자동 전환
+        """
+        current_hour = datetime.now().hour
+
+        # 이미 같은 시간대면 스킵
+        if self.last_checked_hour == current_hour:
+            return
+
+        # 수동 시나리오 실행 중이면 스킵 (타이머가 있는 경우)
+        if self.scenario_start_time is not None:
+            return
+
+        self.last_checked_hour = current_hour
+        time_scenario_num = get_time_based_scenario_number()
+
+        with self.lock:
+            if time_scenario_num is not None:
+                # 시간대별 자동 시나리오 적용
+                new_config = self.scenario_engine.get_time_based_config()
+                desc = new_config.get('description', '')
+
+                # 이미 같은 시나리오면 스킵
+                if self.scenario_config.get('description') != desc:
+                    self.scenario_config = new_config
+                    print(f"\n🕐 시간대 변경 → {desc}\n")
+            else:
+                # 기본 패턴으로 전환 (이전에 자동 시나리오였던 경우)
+                if '[자동]' in self.scenario_config.get('description', ''):
+                    self.scenario_config = BASELINE_CONFIG.copy()
+                    print(f"\n🕐 시간대 변경 → 기본 패턴 (현실적 분포)\n")
 
     # ========================================
     # 시나리오 기반 유저/상품 선택
@@ -185,6 +233,9 @@ class RealtimeDataGenerator:
             while self.running:
                 # 타이머 만료 체크 → 기본 패턴 복귀
                 self._check_scenario_timer()
+
+                # 시간대 변경 체크 → 자동 시나리오 전환
+                self._check_time_based_scenario()
 
                 config = self.get_scenario_config()
 
@@ -439,7 +490,15 @@ class RealtimeDataGenerator:
         if self.initial_scenario_number:
             self._apply_scenario(self.initial_scenario_number)
         else:
-            print("✅ 기본 패턴 (현실적 분포)으로 시작합니다.")
+            # 시간대별 자동 시나리오 체크
+            time_scenario_num = get_time_based_scenario_number()
+            if time_scenario_num is not None:
+                self.scenario_config = self.scenario_engine.get_time_based_config()
+                self.last_checked_hour = datetime.now().hour
+                desc = self.scenario_config.get('description', '')
+                print(f"✅ 시간대별 자동 시나리오 적용: {desc}")
+            else:
+                print("✅ 기본 패턴 (현실적 분포)으로 시작합니다.")
             print("💡 시나리오 전환: scenario_changer.py 실행\n")
 
         print("📋 생성 규칙:")

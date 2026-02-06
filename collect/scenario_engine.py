@@ -42,16 +42,32 @@ def _cat_weights(**overrides) -> Dict[str, float]:
 # 1.0 = 평균, 새벽 최저 → 점심/저녁 피크
 # ============================================================
 HOURLY_MULTIPLIER = {
-    0: 0.35, 1: 0.18, 2: 0.10, 3: 0.06, 4: 0.05, 5: 0.08,
-    6: 0.18, 7: 0.35, 8: 0.55, 9: 0.80, 10: 1.15, 11: 1.30,
-    12: 1.10, 13: 0.90, 14: 0.85, 15: 0.90, 16: 0.95, 17: 1.05,
-    18: 1.15, 19: 1.35, 20: 1.50, 21: 1.40, 22: 1.10, 23: 0.65,
+    0: 0.15, 1: 0.05, 2: 0.02, 3: 0.01, 4: 0.01, 5: 0.03,
+    6: 0.08, 7: 0.20, 8: 0.50, 9: 0.80, 10: 1.30, 11: 1.60,
+    12: 1.40, 13: 1.10, 14: 1.00, 15: 1.10, 16: 1.20, 17: 1.40,
+    18: 1.80, 19: 2.20, 20: 3.00, 21: 2.50, 22: 1.50, 23: 0.50,
+}
+
+# ============================================================
+# 시간대별 자동 시나리오 매핑
+# - 21~23시: 새벽배송 식품 집중 (17번)
+# - 0~5시: 심야 소량 주문 (19번)
+# - 그 외: None (기본 패턴 사용)
+# ============================================================
+TIME_BASED_SCENARIO = {
+    0: 19, 1: 19, 2: 19, 3: 19, 4: 19, 5: 19,  # 심야 소량
+    21: 17, 22: 17, 23: 17,  # 새벽배송 식품
 }
 
 
 def get_hourly_multiplier() -> float:
     """현재 시각 기준 주문량 배수 반환"""
     return HOURLY_MULTIPLIER.get(datetime.now().hour, 1.0)
+
+
+def get_time_based_scenario_number() -> int | None:
+    """현재 시각 기준 자동 적용 시나리오 번호 반환 (없으면 None)"""
+    return TIME_BASED_SCENARIO.get(datetime.now().hour)
 
 
 # ============================================================
@@ -408,6 +424,44 @@ class ScenarioEngine:
         return self.current_config
 
     def get_current_config(self) -> Dict[str, Any]:
+        return self.current_config
+
+    def get_time_based_config(self) -> Dict[str, Any]:
+        """
+        현재 시각 기준으로 자동 시나리오 적용된 config 반환
+        - 21~23시: 17번 (새벽배송 식품) 특성 적용
+        - 0~5시: 19번 (심야 소량) 특성 적용
+        - 그 외: 기본 패턴 사용
+
+        주문량(order_volume)은 HOURLY_MULTIPLIER가 제어하므로,
+        여기서는 카테고리/성별/연령 가중치만 시나리오에서 가져옴
+        """
+        scenario_num = get_time_based_scenario_number()
+
+        if scenario_num is None:
+            # 기본 패턴 사용
+            self.current_config = BASELINE_CONFIG.copy()
+            return self.current_config
+
+        # 시간대 시나리오 가져오기
+        time_scenario = SCENARIOS.get(scenario_num, BASELINE_CONFIG)
+
+        # 기본 패턴 복사 후 시나리오 특성만 병합
+        merged = BASELINE_CONFIG.copy()
+        merged["description"] = f"[자동] {time_scenario['description']}"
+        merged["gender_weights"] = time_scenario["gender_weights"]
+        merged["age_group_weights"] = time_scenario["age_group_weights"]
+        merged["category_weights"] = time_scenario["category_weights"]
+        merged["quantity_weights"] = time_scenario["quantity_weights"]
+
+        # 심야(19번)는 주문량도 줄임 (HOURLY_MULTIPLIER와 시너지)
+        if scenario_num == 19:
+            merged["order_volume"] = time_scenario["order_volume"]
+            merged["interval"] = time_scenario["interval"]
+            merged["peak_probability"] = time_scenario["peak_probability"]
+            merged["peak_volume"] = time_scenario["peak_volume"]
+
+        self.current_config = merged
         return self.current_config
 
     @staticmethod
