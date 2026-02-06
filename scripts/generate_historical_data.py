@@ -291,11 +291,15 @@ class HistoricalDataGenerator:
         user: Dict,
         product: Dict,
         order_datetime: datetime,
-        config: Dict[str, Any]
+        _config: Dict[str, Any]  # 시나리오 config (현재 미사용, 호환성 유지)
     ) -> Dict:
-        """특정 시간에 맞는 주문 데이터 생성 (시나리오 적용)"""
+        """특정 시간에 맞는 주문 데이터 생성 (시나리오 적용)
 
-        # 기본 주문 생성
+        Note: 수량은 order_generator.py의 카테고리 기반 규칙을 사용합니다.
+              (product_rules.json의 quantity_options/quantity_weights)
+        """
+
+        # 기본 주문 생성 (카테고리 기반 수량이 이미 적용됨)
         order_data = self.order_gen.generate_order(user, product)
 
         # 시간 조정
@@ -307,20 +311,8 @@ class HistoricalDataGenerator:
         order_data['user_gender'] = user.get('gender', '')
         order_data['user_age_group'] = get_age_group(user.get('age'))
 
-        # 수량 가중치 적용 (시나리오별)
-        quantity_weights = config.get('quantity_weights', [80, 10, 5, 3, 2])
-        order_data['quantity'] = random.choices([1, 2, 3, 4, 5], weights=quantity_weights, k=1)[0]
-
-        # 금액 재계산
-        price = product.get('price', 10000)
-        quantity = order_data['quantity']
-        shipping_cost = random.choice([0, 2500, 3000])
-        discount_amount = int((price * quantity) * random.uniform(0, 0.1))
-        total_amount = (price * quantity) + shipping_cost - discount_amount
-
-        order_data['total_amount'] = max(0, total_amount)
-        order_data['shipping_cost'] = shipping_cost
-        order_data['discount_amount'] = discount_amount
+        # 수량은 order_generator에서 카테고리 기반으로 이미 결정됨
+        # (생활가전: 1개, 세제/위생: 1~6개 등)
 
         return order_data
 
@@ -350,17 +342,32 @@ class HistoricalDataGenerator:
         return random.choices(users, weights=scores, k=1)[0]
 
     def select_product_by_scenario(self, config: Dict[str, Any]) -> Dict:
-        """시나리오 가중치에 맞는 상품 선택"""
+        """시나리오 가중치에 맞는 상품 선택
+
+        시나리오의 category_weights와 product_rules.json의 order_frequency를
+        함께 반영하여 상품을 선택합니다.
+        """
         if not self.products_cache:
             return None
 
-        category_weights = config.get('category_weights', {})
+        scenario_weights = config.get('category_weights', {})
 
         scored_products = []
         for product in self.products_cache:
             category = product.get('category', '')
-            score = category_weights.get(category, 5.0)
-            scored_products.append((product, max(0.1, score)))  # 최소값 보장
+
+            # 1) 시나리오 가중치 (이벤트/시즌별 카테고리 부스트)
+            scenario_score = scenario_weights.get(category, 5.0)
+
+            # 2) 기본 주문 빈도 (product_rules.json의 order_frequency)
+            if category in self.order_gen.category_rules:
+                frequency_score = self.order_gen.category_rules[category]['order_frequency']
+            else:
+                frequency_score = 10  # 기본값
+
+            # 두 가중치를 곱하여 최종 점수 계산
+            total_score = scenario_score * (frequency_score / 10)
+            scored_products.append((product, max(0.1, total_score)))
 
         products, scores = zip(*scored_products)
         return random.choices(products, weights=scores, k=1)[0]

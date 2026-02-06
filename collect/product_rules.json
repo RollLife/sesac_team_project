@@ -16,6 +16,9 @@
     "SS(봄여름)": {
       "price_min": 15000,
       "price_max": 150000,
+      "order_frequency": 12,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [70, 20, 10],
       "templates": ["{brand} {season} {adj} {noun} {color} {suffix}","{brand} {material} {noun} 1+1 특가","[쿨링] {brand} {noun} ({gender})"
       ],
       "keywords": {
@@ -32,6 +35,9 @@
     "FW(가을겨울)": {
       "price_min": 30000,
       "price_max": 800000,
+      "order_frequency": 10,
+      "quantity_options": [1, 2],
+      "quantity_weights": [80, 20],
       "templates": ["{brand} {season} {adj} {noun} {color} {suffix}","[역대급한파] {brand} {material} {noun} 한정수량",
         "{brand} {fit} {noun} ({material})"
       ],
@@ -49,6 +55,9 @@
     "스킨케어": {
       "price_min": 10000,
       "price_max": 150000,
+      "order_frequency": 18,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [45, 30, 18, 7],
       "templates": ["{brand} {adj} {noun} {volume} {suffix}","{brand} {line} {noun} 1+1 기획","[수분폭탄] {brand} {ingredient} {noun}"
       ],
       "keywords": {
@@ -64,6 +73,9 @@
     "기능성(안티에이징)": {
       "price_min": 50000,
       "price_max": 500000,
+      "order_frequency": 8,
+      "quantity_options": [1, 2],
+      "quantity_weights": [85, 15],
       "templates": ["{brand} {line} {adj} {noun} {volume} {suffix}","[명절선물] {brand} {ingredient} {noun} 세트",
         "{celebrity} 모델 {brand} {noun}"
       ],
@@ -81,6 +93,9 @@
     "신선(과일/채소)": {
       "price_min": 10000,
       "price_max": 80000,
+      "order_frequency": 20,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [55, 30, 15],
       "templates": ["{location} {adj} {noun} {weight} {suffix}","[산지직송] {location} {adj} {noun} ({weight})",
         "[제철] {noun} {weight} 못난이 특가"
       ],
@@ -95,6 +110,9 @@
     "육류/가공": {
       "price_min": 20000,
       "price_max": 200000,
+      "order_frequency": 16,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [50, 35, 15],
       "templates": ["{brand} {adj} {noun} {weight} {suffix}","[캠핑추천] {noun} {weight} 모듬세트",
         "{grade} {location} {noun} 선물세트"
       ],
@@ -111,6 +129,9 @@
     "생활가전": {
       "price_min": 500000,
       "price_max": 5000000,
+      "order_frequency": 2,
+      "quantity_options": [1],
+      "quantity_weights": [100],
       "templates": ["{brand} {year}년형 {adj} {noun} ({model}) {suffix}","[웨딩혼수] {brand} {adj} {noun} 패키지",
         "{brand} {spec} {noun} + 사은품"
       ],
@@ -127,6 +148,9 @@
     "IT/게이밍": {
       "price_min": 100000,
       "price_max": 3000000,
+      "order_frequency": 4,
+      "quantity_options": [1, 2],
+      "quantity_weights": [92, 8],
       "templates": ["{brand} {spec} {noun} {model} {suffix}","[게이밍] {brand} {adj} {noun} ({refresh_rate})",
         "{brand} {year} {noun} 사전예약"
       ],
@@ -144,6 +168,9 @@
     "세제/위생": {
       "price_min": 5000,
       "price_max": 50000,
+      "order_frequency": 22,
+      "quantity_options": [1, 2, 3, 4, 5, 6],
+      "quantity_weights": [15, 25, 25, 18, 12, 5],
       "templates": ["{brand} {adj} {noun} {capacity} x {count}개 {suffix}","{brand} {noun} 리필 {capacity} {count}팩","[쟁여두기] {brand} {noun} 대용량"
       ],
       "keywords": {
@@ -158,6 +185,9 @@
     "화지/제지": {
       "price_min": 10000,
       "price_max": 40000,
+      "order_frequency": 20,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [20, 35, 30, 15],
       "templates": ["{brand} {adj} {noun} {spec} {count}롤 {suffix}","[집들이선물] {brand} {noun} {count}롤 x 2팩"
       ],
       "keywords": {
@@ -172,6 +202,9 @@
     "건강식품": {
       "price_min": 30000,
       "price_max": 500000,
+      "order_frequency": 10,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [55, 30, 15],
       "templates": ["{celebrity}의 {process} {ingredient} {noun} {amount}","[효도선물] {brand} {adj} {ingredient} {noun} ({suffix})",
         "{brand} {process} {ingredient} {noun} {amount} {suffix}"
       ],
@@ -189,6 +222,9 @@
     "영양제": {
       "price_min": 15000,
       "price_max": 150000,
+      "order_frequency": 14,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [40, 35, 18, 7],
       "templates": ["{brand} {adj} {ingredient} {noun} {amount}","{brand} {ingredient} {noun} {amount} 1+1 기획","{celebrity} 모델 {brand} {ingredient} {noun} {suffix}"],
       "keywords": {
         "brand": ["고려은단","뉴트리원","덴프스","에스더포뮬러","종근당","얼라이브"],
@@ -204,6 +240,9 @@
     "소파/침대": {
       "price_min": 300000,
       "price_max": 3000000,
+      "order_frequency": 2,
+      "quantity_options": [1],
+      "quantity_weights": [100],
       "templates": ["{brand} {material} {noun} {size} {suffix}","[오늘의집] {brand} {adj} {noun} + 스툴포함",
         "{brand} {adj} {noun} 풀세트"
       ],
@@ -219,6 +258,9 @@
     "사무/학생": {
       "price_min": 50000,
       "price_max": 500000,
+      "order_frequency": 5,
+      "quantity_options": [1, 2],
+      "quantity_weights": [90, 10],
       "templates": ["{brand} {adj} {noun} ({model}) {suffix}","[학생방] {brand} {noun} + {opt} 세트"
       ],
       "keywords": {
@@ -233,6 +275,9 @@
     "골프": {
       "price_min": 50000,
       "price_max": 1500000,
+      "order_frequency": 3,
+      "quantity_options": [1, 2],
+      "quantity_weights": [88, 12],
       "templates": ["{brand} {year} {spec} {noun} ({gender})","{brand} {adj} {noun} 풀세트 {suffix}"],
       "keywords": {
         "brand": ["타이틀리스트","테일러메이드","핑","캘러웨이","PXG"],
@@ -247,6 +292,9 @@
     "캠핑": {
       "price_min": 20000,
       "price_max": 2000000,
+      "order_frequency": 4,
+      "quantity_options": [1, 2],
+      "quantity_weights": [85, 15],
       "templates": ["{brand} {adj} {noun} {size} {suffix}","[감성캠핑] {brand} {noun} ({color})"
       ],
       "keywords": {
@@ -261,6 +309,9 @@
     "항공": {
       "price_min": 50000,
       "price_max": 1500000,
+      "order_frequency": 6,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [25, 45, 20, 10],
       "templates": ["[항공권] {location} {adj} 왕복 항공권 ({brand})",
         "{brand} {location} {adj} 특가 항공권"
       ],
@@ -274,6 +325,9 @@
     "숙박": {
       "price_min": 80000,
       "price_max": 2000000,
+      "order_frequency": 6,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [50, 35, 15],
       "templates": ["{location} {brand} {room} {count}박 패키지","[호텔] {brand} {location} {adj} ({room})"
       ],
       "keywords": {
@@ -288,6 +342,9 @@
     "티켓/패스": {
       "price_min": 10000,
       "price_max": 100000,
+      "order_frequency": 8,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [20, 35, 30, 15],
       "templates": ["[입장권] {brand} {activity} {people}인권 {suffix}",
         "{brand} {activity} 자유이용권 ({opt})"
       ],
