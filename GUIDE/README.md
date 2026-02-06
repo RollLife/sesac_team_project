@@ -95,6 +95,11 @@ docker logs -f order_consumer_1
 | [KAFKA_BENCHMARK_GUIDE.md](KAFKA_BENCHMARK_GUIDE.md) | 성능 벤치마크 | Kafka ON/OFF 비교, TPS |
 | [PYTHON_DEV_GUIDE.md](PYTHON_DEV_GUIDE.md) | 개발 환경 | 환경 테스트, REPL, 디버깅 |
 
+### 데이터 분석
+| 가이드 | 설명 | 주요 내용 |
+|-------|------|----------|
+| [HISTORICAL_DATA_GUIDE.md](HISTORICAL_DATA_GUIDE.md) | 과거 데이터 생성 | 1년치 주문 데이터, 시나리오 적용, Grafana 분석용 |
+
 ## 서비스 구성 (20개 컨테이너)
 
 ### 인프라 (7개)
@@ -151,8 +156,9 @@ docker logs -f order_consumer_1
 - `cache/redis_monitor.py` - 실시간 모니터링
 
 ### 데이터 생성
-- `apps/seeders/initial_seeder.py` - 초기 데이터 생성
+- `apps/seeders/initial_seeder.py` - 초기 데이터 생성 (유저 1만명, 상품 2만개)
 - `apps/seeders/realtime_generator.py` - 실시간 데이터 생성 (Redis 연동)
+- `scripts/generate_historical_data.py` - 과거 1년치 주문 데이터 생성 (Grafana 분석용)
 
 ### 설정
 - `deploy/docker-compose.yml` - 전체 서비스 정의 (20개 컨테이너)

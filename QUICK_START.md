@@ -235,14 +235,43 @@ docker-compose up -d
 ├── database/               # 데이터베이스
 │   ├── models.py           # SQLAlchemy 모델
 │   └── crud.py             # CRUD 함수
-└── collect/                # 데이터 생성기
-    ├── user_generator.py
-    ├── product_generator.py
-    └── order_generator.py
+├── collect/                # 데이터 생성기
+│   ├── user_generator.py
+│   ├── product_generator.py
+│   ├── order_generator.py
+│   └── scenario_engine.py    # 20가지 시나리오 정의
+└── scripts/                # 유틸리티 스크립트
+    └── generate_historical_data.py  # 과거 1년치 데이터 생성
 ```
+
+## Grafana 분석용 과거 데이터 생성
+
+1년치 과거 주문 데이터를 생성하여 분석 대시보드용 데이터를 준비합니다.
+
+### 실행 방법
+
+```bash
+# 프로젝트 루트에서 실행
+python scripts/generate_historical_data.py
+```
+
+### 생성 내용
+| 항목 | 내용 |
+|------|------|
+| 기간 | 2025년 1월 ~ 12월 |
+| 주문 수 | 약 50,000건 |
+| 성장 패턴 | 월 3,000건 → 6,000건 |
+| 시나리오 | 20가지 이벤트 (설날, 블프, 여름 등) |
+
+### 전제 조건
+- `initial_seeder.py` 실행 완료 (유저 1만명, 상품 2만개)
+- PostgreSQL 컨테이너 실행 중
+
+자세한 내용: [GUIDE/HISTORICAL_DATA_GUIDE.md](GUIDE/HISTORICAL_DATA_GUIDE.md)
 
 ## 참고 문서
 
 - [GUIDE/DOCKER_DEPLOYMENT_GUIDE.md](GUIDE/DOCKER_DEPLOYMENT_GUIDE.md) - Docker 배포 가이드 (상세)
 - [GUIDE/KAFKA_SETUP_GUIDE.md](GUIDE/KAFKA_SETUP_GUIDE.md) - Kafka 설정 가이드
+- [GUIDE/HISTORICAL_DATA_GUIDE.md](GUIDE/HISTORICAL_DATA_GUIDE.md) - 과거 데이터 생성 가이드
 - [deploy/PYTHON_DEV_GUIDE.md](deploy/PYTHON_DEV_GUIDE.md) - 개발 컨테이너 사용법
