@@ -179,8 +179,7 @@ services:
     volumes:
       # 1. (기존) 그라파나 데이터 저장소 (사용자 비번 등 저장)
       - grafana_data:/var/lib/grafana
-      - ../apps/seeders/history_data.db:/var/lib/grafana/history_data.db:ro
-      
+
       # 2. [추가] 프로비저닝 설정 파일 연결 (dashboard.yml이 있는 폴더 통째로)
       - ../grafana/provisioning:/etc/grafana/provisioning
 
