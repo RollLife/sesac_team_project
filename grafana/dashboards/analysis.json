@@ -749,6 +749,390 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "longitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "주문건수"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 0,
+        "y": 32
+      },
+      "id": 10,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "noRepeat": false,
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "super-light-green"
+                },
+                "opacity": 0.4,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "field": "주문건수",
+                  "fixed": 30,
+                  "max": 50,
+                  "min": 10
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "주문건수",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 36.5,
+          "lon": 127.5,
+          "noRepeat": false,
+          "shared": true,
+          "zoom": 6
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "dataset": "sesac_db",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \r\n    u.address_district as \"지역\",\r\n    COUNT(o.order_id) as \"주문건수\",\r\n    CASE u.address_district\r\n        WHEN '서울' THEN 37.5665\r\n        WHEN '경기' THEN 37.4138\r\n        WHEN '인천' THEN 37.4563\r\n        WHEN '부산' THEN 35.1796\r\n        WHEN '대구' THEN 35.8714\r\n        WHEN '대전' THEN 36.3504\r\n        WHEN '광주' THEN 35.1595\r\n        WHEN '울산' THEN 35.5384\r\n        WHEN '강원' THEN 37.8228\r\n        WHEN '충청' THEN 36.6357\r\n        WHEN '경상' THEN 35.8000\r\n        WHEN '전라' THEN 35.4000\r\n        WHEN '제주' THEN 33.4996\r\n    END as \"latitude\",\r\n    CASE u.address_district\r\n        WHEN '서울' THEN 126.9780\r\n        WHEN '경기' THEN 127.5183\r\n        WHEN '인천' THEN 126.7052\r\n        WHEN '부산' THEN 129.0756\r\n        WHEN '대구' THEN 128.6014\r\n        WHEN '대전' THEN 127.3845\r\n        WHEN '광주' THEN 126.8526\r\n        WHEN '울산' THEN 129.3114\r\n        WHEN '강원' THEN 128.1555\r\n        WHEN '충청' THEN 127.4912\r\n        WHEN '경상' THEN 128.5000\r\n        WHEN '전라' THEN 127.0000\r\n        WHEN '제주' THEN 126.5312\r\n    END as \"longitude\"\r\nFROM orders o\r\nJOIN users u ON o.user_id = u.user_id\r\nGROUP BY u.address_district;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "지역별 주문 건수",
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "super-light-blue",
+            "mode": "fixed"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "longitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "총매출"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 10,
+        "y": 32
+      },
+      "id": 11,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "noRepeat": false,
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "super-light-red"
+                },
+                "opacity": 0.4,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "field": "주문건수",
+                  "fixed": 30,
+                  "max": 50,
+                  "min": 10
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "총매출",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 36.5,
+          "lon": 127.5,
+          "noRepeat": false,
+          "shared": true,
+          "zoom": 6
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "dataset": "sesac_db",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \r\n    u.address_district as \"지역\",\r\n    SUM(o.total_amount) as \"총매출\",\r\n    CASE u.address_district\r\n        WHEN '서울' THEN 37.5665\r\n        WHEN '경기' THEN 37.4138\r\n        WHEN '인천' THEN 37.4563\r\n        WHEN '부산' THEN 35.1796\r\n        WHEN '대구' THEN 35.8714\r\n        WHEN '대전' THEN 36.3504\r\n        WHEN '광주' THEN 35.1595\r\n        WHEN '울산' THEN 35.5384\r\n        WHEN '강원' THEN 37.8228\r\n        WHEN '충청' THEN 36.6357\r\n        WHEN '경상' THEN 35.8000\r\n        WHEN '전라' THEN 35.4000\r\n        WHEN '제주' THEN 33.4996\r\n    END as \"latitude\",\r\n    CASE u.address_district\r\n        WHEN '서울' THEN 126.9780\r\n        WHEN '경기' THEN 127.5183\r\n        WHEN '인천' THEN 126.7052\r\n        WHEN '부산' THEN 129.0756\r\n        WHEN '대구' THEN 128.6014\r\n        WHEN '대전' THEN 127.3845\r\n        WHEN '광주' THEN 126.8526\r\n        WHEN '울산' THEN 129.3114\r\n        WHEN '강원' THEN 128.1555\r\n        WHEN '충청' THEN 127.4912\r\n        WHEN '경상' THEN 128.5000\r\n        WHEN '전라' THEN 127.0000\r\n        WHEN '제주' THEN 126.5312\r\n    END as \"longitude\"\r\nFROM orders o\r\nJOIN users u ON o.user_id = u.user_id\r\nGROUP BY u.address_district;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "지역별 총 매출",
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -810,7 +1194,7 @@
         "h": 8,
         "w": 20,
         "x": 0,
-        "y": 32
+        "y": 41
       },
       "id": 1,
       "options": {
@@ -924,7 +1308,7 @@
         "h": 10,
         "w": 20,
         "x": 0,
-        "y": 40
+        "y": 49
       },
       "id": 8,
       "options": {
@@ -1034,7 +1418,7 @@
         "h": 11,
         "w": 20,
         "x": 0,
-        "y": 50
+        "y": 59
       },
       "id": 7,
       "options": {
