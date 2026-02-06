@@ -206,7 +206,3 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# History generator SQLite DB
-history_data.db
-history_data.db-wal
-history_data.db-shm
