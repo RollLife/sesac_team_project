@@ -27,6 +27,9 @@ class Product(Base):
     
     created_at = Column(DateTime, default=datetime.now, comment="등록일")
     last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
+    
+    created_datetime = Column(DateTime, server_default=func.now(), nullable=False, comment="실제 추가되는 시각")
+    updated_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False, comment="실제 수정되는 시각")
 
     orders = relationship("Order", back_populates="product")
 
@@ -55,6 +58,9 @@ class User(Base):
     
     created_at = Column(DateTime, default=datetime.now, comment="가입일")
     last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
+    
+    created_datetime = Column(DateTime, server_default=func.now(), nullable=False, comment="실제 추가되는 시각")
+    updated_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False, comment="실제 수정되는 시각")
 
     orders = relationship("Order", back_populates="user")
 
@@ -88,6 +94,9 @@ class Order(Base):
 
     user = relationship("User", back_populates="orders")
     product = relationship("Product", back_populates="orders")
+
+    created_datetime = Column(DateTime, server_default=func.now(), nullable=False, comment="실제 추가되는 시각")
+    updated_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False, comment="실제 수정되는 시각")
 
     def __repr__(self):
         return f"<Order(id={self.order_id}, amount={self.total_amount})>"

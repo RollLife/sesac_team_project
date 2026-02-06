@@ -2,6 +2,7 @@ import json
 import os
 import random
 import uuid
+from datetime import datetime
 from faker import Faker
 
 fake = Faker('ko_KR')
@@ -112,7 +113,9 @@ class ProductGenerator:
             "discount_rate": discount_rate,
             "rating": rating,
             "review_count": review_count,
-            "is_best": "Y" if review_count > 1000 and rating > 4.5 else "N"
+            "is_best": "Y" if review_count > 1000 and rating > 4.5 else "N",
+            "created_datetime": datetime.now(),
+            "updated_datetime": datetime.now()
         }
 
     def generate_batch(self, count=100):

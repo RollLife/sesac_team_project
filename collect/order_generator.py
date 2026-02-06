@@ -64,7 +64,9 @@ class OrderGenerator:
             "shipping_cost": shipping_cost,
             "discount_amount": discount_amount,
             "payment_method": payment,
-            "status": "Success"
+            "status": "Success",
+            "created_datetime": datetime.now(),
+            "updated_datetime": datetime.now()
         }
 
     def generate_batch(self, users, products, count=100):

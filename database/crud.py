@@ -44,6 +44,8 @@ def create_product(db: Session, product_data: dict):
         "description": db_product.description,
         "stock": db_product.stock,
         "created_at": db_product.created_at,
+        "created_datetime": db_product.created_datetime,
+        "updated_datetime": db_product.created_datetime
     }
     _publish_to_kafka(KAFKA_TOPIC_PRODUCTS, db_product.product_id, product_dict, 'product_created')
 
@@ -96,6 +98,8 @@ def create_user(db: Session, user_data: dict):
         "email": db_user.email,
         "grade": db_user.grade,
         "created_at": db_user.created_at,
+        "created_datetime": db_user.created_datetime,
+        "updated_datetime": db_user.created_datetime
     }
     _publish_to_kafka(KAFKA_TOPIC_USERS, db_user.user_id, user_dict, 'user_created')
 
@@ -171,6 +175,8 @@ def create_order(db: Session, order_data: dict):
         "user_region": db_order.user_region,
         "user_gender": db_order.user_gender,
         "user_age_group": db_order.user_age_group,
+        "created_datetime": db_order.created_datetime,
+        "updated_datetime": db_order.created_datetime
     }
     _publish_to_kafka(KAFKA_TOPIC_ORDERS, db_order.user_id, order_dict, 'order_created')
 

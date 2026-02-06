@@ -68,7 +68,9 @@ class UserGenerator:
             "created_at": created_at.isoformat(),
             "last_login_at": last_login_at.isoformat(), # 이탈률 분석용
             "status": status, # 활성/휴면 상태
-            "marketing_agree": random.choice([True, False]) # 마케팅 타겟팅용
+            "marketing_agree": random.choice([True, False]), # 마케팅 타겟팅용
+            "created_datetime": datetime.now(),
+            "updated_datetime": datetime.now()
         }
 
     def generate_batch(self, count=100):
