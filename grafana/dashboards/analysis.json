@@ -29,6 +29,91 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "fixedColor": "#939090",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "max": -1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "locale"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 20,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "dataset": "sesac_db",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- 선택 기간 내 총매출\r\nSELECT\r\n  SUM(total_amount) as \"총매출\"\r\nFROM orders\r\nWHERE created_at >= $__timeFrom();",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "총 매출",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic-by-name"
           },
           "custom": {
@@ -87,7 +172,7 @@
         "h": 7,
         "w": 20,
         "x": 0,
-        "y": 0
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -191,6 +276,13 @@
               {
                 "id": "custom.axisLabel",
                 "value": "주문수"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c5ffac",
+                  "mode": "fixed"
+                }
               }
             ]
           }
@@ -200,7 +292,7 @@
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 7
+        "y": 15
       },
       "id": 5,
       "options": {
@@ -232,7 +324,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- 피크타임 분석 (막대그래프)\r\nSELECT\r\n  EXTRACT(HOUR FROM created_at + INTERVAL '9 hours')::text || '시' AS \"시간대\",\r\n  COUNT(*) AS \"주문수\"\r\nFROM orders\r\nWHERE created_at >= NOW() - INTERVAL '1 day'\r\nGROUP BY EXTRACT(HOUR FROM created_at + INTERVAL '9 hours')\r\nORDER BY 1;",
+          "rawSql": "-- 시간대별 주문 추세 (막대그래프)\r\nSELECT\r\n  EXTRACT(HOUR FROM created_at)::text || '시' AS \"시간대\",\r\n  COUNT(*) AS \"주문수\"\r\nFROM orders\r\nWHERE created_at >= NOW() - INTERVAL '1 day'\r\nGROUP BY EXTRACT(HOUR FROM created_at)\r\nORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -253,7 +345,7 @@
           }
         }
       ],
-      "title": "피크타임 분석",
+      "title": "시간대별 주문 추세",
       "type": "barchart"
     },
     {
@@ -325,7 +417,7 @@
         "h": 8,
         "w": 10,
         "x": 10,
-        "y": 7
+        "y": 15
       },
       "id": 6,
       "options": {
@@ -339,7 +431,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- 피크타임 상세 (테이블용)\r\nSELECT        -- 요일별, 시간대별 주문 건수 및 매출 추출\r\n  CASE EXTRACT(DOW FROM created_at)\r\n    WHEN 0 THEN '일'\r\n    WHEN 1 THEN '월'\r\n    WHEN 2 THEN '화'\r\n    WHEN 3 THEN '수'\r\n    WHEN 4 THEN '목'\r\n    WHEN 5 THEN '금'\r\n    WHEN 6 THEN '토'\r\n  END AS \"요일\",\r\n  EXTRACT(HOUR FROM created_at + INTERVAL '9 hours') || '시' AS \"시간대\",\r\n  COUNT(*) AS \"주문수\",\r\n  SUM(total_amount) AS \"매출\"\r\nFROM orders\r\nWHERE created_at >= NOW() - INTERVAL '7 days'\r\nGROUP BY 1, EXTRACT(DOW FROM created_at), 2, EXTRACT(HOUR FROM created_at)\r\nORDER BY EXTRACT(DOW FROM created_at), EXTRACT(HOUR FROM created_at);",
+          "rawSql": "-- 시간대별 주문 추세 (테이블용)\r\nSELECT        -- 요일별, 시간대별 주문 건수 및 매출 추출\r\n  CASE EXTRACT(DOW FROM created_at)\r\n    WHEN 0 THEN '일'\r\n    WHEN 1 THEN '월'\r\n    WHEN 2 THEN '화'\r\n    WHEN 3 THEN '수'\r\n    WHEN 4 THEN '목'\r\n    WHEN 5 THEN '금'\r\n    WHEN 6 THEN '토'\r\n  END AS \"요일\",\r\n  EXTRACT(HOUR FROM created_at) || '시' AS \"시간대\",\r\n  COUNT(*) AS \"주문수\",\r\n  SUM(total_amount) AS \"매출\"\r\nFROM orders\r\nWHERE created_at >= NOW() - INTERVAL '7 days'\r\nGROUP BY 1, EXTRACT(DOW FROM created_at), 2, EXTRACT(HOUR FROM created_at)\r\nORDER BY EXTRACT(DOW FROM created_at), EXTRACT(HOUR FROM created_at);",
           "refId": "A",
           "sql": {
             "columns": [
@@ -360,7 +452,7 @@
           }
         }
       ],
-      "title": "피크타임 상세",
+      "title": "시간대별 주문 추세 (테이블용)",
       "type": "table"
     },
     {
@@ -444,7 +536,7 @@
         "h": 9,
         "w": 10,
         "x": 0,
-        "y": 15
+        "y": 23
       },
       "id": 4,
       "options": {
@@ -589,7 +681,7 @@
         "h": 9,
         "w": 10,
         "x": 10,
-        "y": 15
+        "y": 23
       },
       "id": 2,
       "options": {
@@ -657,7 +749,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic-by-name"
+            "mode": "palette-classic"
           },
           "custom": {
             "axisBorderShow": false,
@@ -718,7 +810,7 @@
         "h": 8,
         "w": 20,
         "x": 0,
-        "y": 24
+        "y": 32
       },
       "id": 1,
       "options": {
@@ -786,7 +878,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "super-light-blue",
+            "fixedColor": "#f5f1d3",
             "mode": "fixed"
           },
           "custom": {
@@ -832,7 +924,7 @@
         "h": 10,
         "w": 20,
         "x": 0,
-        "y": 32
+        "y": 40
       },
       "id": 8,
       "options": {
@@ -942,7 +1034,7 @@
         "h": 11,
         "w": 20,
         "x": 0,
-        "y": 42
+        "y": 50
       },
       "id": 7,
       "options": {
@@ -1014,5 +1106,5 @@
   "timezone": "browser",
   "title": "Analysis",
   "uid": "adbzt8123213216",
-  "version": 4
+  "version": 7
 }

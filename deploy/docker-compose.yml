@@ -23,6 +23,8 @@ services:
     container_name: kafka1
     restart: always
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       # KRaft 설정
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -63,6 +65,8 @@ services:
     container_name: kafka2
     restart: always
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       # KRaft 설정
       KAFKA_NODE_ID: 2
       KAFKA_PROCESS_ROLES: broker,controller
@@ -103,6 +107,8 @@ services:
     container_name: kafka3
     restart: always
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       # KRaft 설정
       KAFKA_NODE_ID: 3
       KAFKA_PROCESS_ROLES: broker,controller
@@ -146,6 +152,8 @@ services:
       - kafka2
       - kafka3
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       KAFKA_CLUSTERS_0_NAME: local-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29093,kafka3:29094
     ports:
@@ -161,11 +169,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=frser-sqlite-datasource
-      - GF_AUTH_ANONYMOUS_ENABLED=true        # 익명 로그인 허용
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin      # 들어오자마자 '관리자(Admin)' 권한 주기
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: frser-sqlite-datasource
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin   # 들어오자마자 '관리자(Admin)' 권한 주기
     volumes:
       # 1. (기존) 그라파나 데이터 저장소 (사용자 비번 등 저장)
       - grafana_data:/var/lib/grafana
@@ -187,6 +197,8 @@ services:
     ports:
       - "8081:8080"
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       ADMINER_DEFAULT_SERVER: postgres
 
   # Redis 캐시 서버 (Aging 기법 적용)
@@ -218,6 +230,8 @@ services:
     depends_on:
       - postgres
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -245,6 +259,8 @@ services:
       - kafka2
       - kafka3
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
       KAFKA_ENABLED: "true"
     command: >
@@ -269,6 +285,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -294,6 +312,8 @@ services:
       initial-seeder:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -318,6 +338,8 @@ services:
     depends_on:
       - redis
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_MONITOR_INTERVAL: 1
@@ -341,6 +363,8 @@ services:
       redis:
         condition: service_healthy
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -369,6 +393,8 @@ services:
       initial-seeder:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -392,6 +418,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -414,6 +442,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -436,6 +466,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -459,6 +491,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -481,6 +515,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -503,6 +539,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -526,6 +564,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -548,6 +588,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -597,8 +639,10 @@ services:
     container_name: jupyter_notebook
     user: root # 권한 문제 방지
     environment:
-      - JUPYTER_ENABLE_LAB=yes
-      - GRANT_SUDO=yes
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+      JUPYTER_ENABLE_LAB: "yes"
+      GRANT_SUDO: "yes"
     ports:
       - "8888:8888" # 웹 브라우저 접속용 포트
     volumes:
@@ -617,6 +661,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -642,6 +688,8 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
       DB_TYPE: local
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password

@@ -1,3 +1,9 @@
+-- 선택 기간 내 총매출
+SELECT
+  SUM(total_amount) as "총매출"
+FROM orders
+WHERE created_at >= $__timeFrom();
+
 -- 연령대별 결제 수단
 SELECT 
   user_age_group AS "연령대",
@@ -42,16 +48,16 @@ WHERE status = 'Success'
 GROUP BY user_id;
 
 
--- 피크타임 분석 (막대그래프)
+-- 시간대별 주문 추세 (막대그래프)
 SELECT
-  EXTRACT(HOUR FROM created_at + INTERVAL '9 hours')::text || '시' AS "시간대",
+  EXTRACT(HOUR FROM created_at)::text || '시' AS "시간대",
   COUNT(*) AS "주문수"
 FROM orders
 WHERE created_at >= NOW() - INTERVAL '1 day'
-GROUP BY EXTRACT(HOUR FROM created_at + INTERVAL '9 hours')
+GROUP BY EXTRACT(HOUR FROM created_at)
 ORDER BY 1;
 
--- 피크타임 상세 (테이블용)
+-- 시간대별 주문 추세 (테이블용)
 SELECT        -- 요일별, 시간대별 주문 건수 및 매출 추출
   CASE EXTRACT(DOW FROM created_at)
     WHEN 0 THEN '일'
@@ -62,7 +68,7 @@ SELECT        -- 요일별, 시간대별 주문 건수 및 매출 추출
     WHEN 5 THEN '금'
     WHEN 6 THEN '토'
   END AS "요일",
-  EXTRACT(HOUR FROM created_at + INTERVAL '9 hours') || '시' AS "시간대",
+  EXTRACT(HOUR FROM created_at) || '시' AS "시간대",
   COUNT(*) AS "주문수",
   SUM(total_amount) AS "매출"
 FROM orders
