@@ -26,9 +26,10 @@ GROUP BY payment_method;
 
 
 -- 시간대별 주문 추세 (15분 기준)
+-- 해당 문법에서는 Grafana에서 자동으로 KST로 인식함........ IDK..............
 SELECT
-  date_trunc('minute', created_at) - 
-    (EXTRACT(minute FROM created_at)::int % 15) * INTERVAL '1 minute' as time,
+  date_trunc('minute', created_at - INTERVAL '9 hours') - 
+  (EXTRACT(minute FROM created_at - INTERVAL '9 hours')::int % 15) * INTERVAL '1 minute',
   count(*) as value,
   '주문 건수' as metric
 FROM orders

@@ -120,7 +120,7 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "",
+            "axisLabel": "주문 건수",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
@@ -195,7 +195,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- 시간대별 주문 추세 (15분 기준)\r\nSELECT\r\n  date_trunc('minute', created_at) - \r\n    (EXTRACT(minute FROM created_at)::int % 15) * INTERVAL '1 minute' as time,\r\n  count(*) as value,\r\n  '주문 건수' as metric\r\nFROM orders\r\nWHERE created_at >= $__timeFrom()\r\nGROUP BY 1\r\nORDER BY 1;",
+          "rawSql": "-- 시간대별 주문 추세 (15분 기준)\r\n-- 해당 문법에서는 Grafana에서 자동으로 KST로 인식함........ IDK..............\r\nSELECT\r\n  date_trunc('minute', created_at - INTERVAL '9 hours') - \r\n  (EXTRACT(minute FROM created_at - INTERVAL '9 hours')::int % 15) * INTERVAL '1 minute',\r\n  count(*) as value,\r\n  '주문 건수' as metric\r\nFROM orders\r\nWHERE created_at >= $__timeFrom()\r\nGROUP BY 1\r\nORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1106,5 +1106,5 @@
   "timezone": "browser",
   "title": "Analysis",
   "uid": "adbzt8123213216",
-  "version": 7
+  "version": 1
 }
