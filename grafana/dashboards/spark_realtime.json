@@ -200,7 +200,7 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT COUNT(*) as \"VIP유저\" FROM realtime_user_stats WHERE total_spent >= 2000000 AND total_count >= 10;",
+                    "rawSql": "SELECT COUNT(*) as \"VIP유저\" FROM realtime_user_stats WHERE total_spent >= 5000000 AND total_count >= 30;",
                     "refId": "A"
                 }
             ],
