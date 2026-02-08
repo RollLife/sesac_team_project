@@ -2,31 +2,31 @@
 
 ## 개요
 
-모든 애플리케이션이 Docker 컨테이너로 실행됩니다. Redis 캐싱 + Aging 기법을 통해 대용량 데이터 환경에서도 효율적인 성능을 제공합니다.
+모든 애플리케이션이 Docker 컨테이너로 실행됩니다. Redis 캐싱 + 구매이력/미구매 분리 적재를 통해 대용량 데이터 환경에서도 효율적인 성능을 제공합니다.
 
 ## 시스템 아키텍처
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
-│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+│  (원본 DB)  │     │(분리적재50초)│     │ (1000건)    │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
       ┌────────────────────────────────────────┘
       ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Producer   │────▶│   Kafka     │────▶│  Consumers  │
-│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+│(성향기반선택)│     │ (3 brokers) │     │(9 instances)│
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
-                                               ▼
-                                        ┌─────────────┐
-                                        │ PostgreSQL  │
-                                        │   (저장)    │
+┌─────────────┐                                ▼
+│Grade Updater│                         ┌─────────────┐
+│ (10분 배치) │                         │ PostgreSQL  │
+└─────────────┘                         │   (저장)    │
                                         └─────────────┘
 ```
 
-## 서비스 구성 (20개 컨테이너)
+## 서비스 구성 (21개 컨테이너)
 
 ### 인프라 (7개)
 - `postgres`: PostgreSQL 데이터베이스
@@ -37,13 +37,14 @@
 - `adminer`: DB 관리 UI
 
 
-### 캐시 서비스 (2개)
-- `cache-worker`: Redis 캐시 갱신 (Aging 기법, 50초마다)
+### 캐시 및 배치 서비스 (3개)
+- `cache-worker`: Redis 캐시 갱신 (구매이력/미구매 분리 적재, 50초마다)
 - `redis-monitor`: Redis 실시간 모니터링
+- `grade-updater`: 고객 등급 배치 갱신 (10분 주기)
 
 ### 데이터 생성 (3개)
 - `initial-seeder`: 초기 데이터 생성 (one-time job)
-- `producer`: 실시간 주문/상품 생성 (Redis에서 조회)
+- `producer`: 실시간 주문/상품 생성 (구매 성향 기반 선택)
 - `user-seeder`: 실시간 고객 생성
 
 ### Consumer (9개)
@@ -52,7 +53,7 @@
 - `order-consumer-1/2/3`: 주문 토픽 컨슈머 (3개)
 
 
-**총 20개 컨테이너**
+**총 21개 컨테이너**
 
 ### 개발 (1개, 선택적)
 - `python-dev`: 개발 컨테이너 (dev 프로파일)
@@ -91,12 +92,12 @@ docker-compose ps
 
 ```
 
-## Redis 캐싱 + Aging 기법
+## Redis 캐싱 + 구매이력/미구매 분리 적재
 
 ### 개념
 - **50초마다** DB에서 1,000건의 유저/상품 데이터를 Redis로 캐싱
-- **Aging 기법**: 50% 신규 데이터 + 50% 기존 데이터로 기아(Starvation) 방지
-- **Producer**: Redis 캐시에서 랜덤 조회 → Kafka 발행
+- **분리 적재**: 고객 600명(구매이력) + 400명(미구매), 상품 700개(인기) + 300개(신상품)
+- **Producer**: Redis 캐시에서 구매 성향 상위 200명 선택 → Kafka 발행
 
 #### 1단계: 인프라만 시작
 ```bash
@@ -164,7 +165,6 @@ docker-compose up -d user-consumer-1
 # cache-worker 환경변수
 CACHE_REFRESH_INTERVAL: 50     # 캐시 갱신 주기 (초)
 CACHE_BATCH_SIZE: 1000         # 캐시 배치 크기
-CACHE_NEW_DATA_RATIO: 0.5      # 신규 데이터 비율 (50%)
 ```
 
 ### 성능 향상
@@ -255,7 +255,6 @@ environment:
   REDIS_PORT: 6379
   CACHE_REFRESH_INTERVAL: 50
   CACHE_BATCH_SIZE: 1000
-  CACHE_NEW_DATA_RATIO: 0.5
 ```
 
 ### Kafka 설정

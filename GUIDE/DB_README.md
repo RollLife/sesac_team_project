@@ -2,19 +2,19 @@
 
 This project uses **SQLAlchemy** with a modular structure to support **Local PostgreSQL**, **Supabase**, and **AWS RDS**.
 
-## 시스템 아키텍처 (Redis 캐싱 + Aging)
+## 시스템 아키텍처 (Redis 캐싱 + 구매이력/미구매 분리 적재)
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
-│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+│  (원본 DB)  │     │(분리적재50초)│     │ (1000건)    │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
       ┌────────────────────────────────────────┘
       ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Producer   │────▶│   Kafka     │────▶│  Consumers  │
-│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+│(성향기반선택)│     │ (3 brokers) │     │(9 instances)│
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
                                                ▼
@@ -81,13 +81,21 @@ pip install sqlalchemy psycopg2-binary python-dotenv
 |--------|------|-------------|
 | user_id | VARCHAR(50) | Primary Key |
 | name | VARCHAR(100) | 사용자 이름 |
-| gender | CHAR(1) | 성별 (M/F) |
+| gender | VARCHAR(10) | 성별 (M/F) |
 | age | INTEGER | 나이 |
-| age_group | VARCHAR(10) | 연령대 (20대, 30대 등) |
-| region | VARCHAR(50) | 지역 |
-| join_date | DATE | 가입일 |
-| **last_cached_at** | TIMESTAMP | **Redis 캐싱 시점 (Aging 기법용)** |
-| created_at | TIMESTAMP | 생성일시 |
+| birth_year | INTEGER | 출생년도 |
+| address | VARCHAR(255) | 전체 주소 |
+| address_district | VARCHAR(100) | 주소 (구 단위, 인덱스) |
+| email | VARCHAR(100) | 이메일 |
+| grade | VARCHAR(20) | 멤버십 등급 (기본: BRONZE, 배치 갱신) |
+| status | VARCHAR(20) | 활동/휴면 상태 (ACTIVE/DORMANT) |
+| last_login_at | TIMESTAMP | 마지막 로그인 일시 |
+| marketing_agree | VARCHAR(5) | 마케팅 동의 여부 ("true"/"false") |
+| created_at | TIMESTAMP | 가입일 |
+| **last_ordered_at** | TIMESTAMP | **마지막 주문 시간 (캐시 분리 적재 기준)** |
+| **random_seed** | FLOAT | **캐시 랜덤 선택용 시드 (0.0~1.0, 인덱스)** |
+| created_datetime | TIMESTAMP | 실제 추가되는 시각 |
+| updated_datetime | TIMESTAMP | 실제 수정되는 시각 |
 
 ### Products Table
 
@@ -95,65 +103,67 @@ pip install sqlalchemy psycopg2-binary python-dotenv
 |--------|------|-------------|
 | product_id | VARCHAR(50) | Primary Key |
 | name | VARCHAR(200) | 상품명 |
-| category | VARCHAR(50) | 카테고리 |
-| brand | VARCHAR(100) | 브랜드 |
+| category | VARCHAR(50) | 카테고리 (인덱스) |
+| brand | VARCHAR(100) | 브랜드 (인덱스) |
+| org_price | INTEGER | 정가 |
 | price | INTEGER | 판매가 |
-| org_price | INTEGER | 원가 |
 | discount_rate | FLOAT | 할인율 |
 | stock | INTEGER | 재고 |
-| **last_cached_at** | TIMESTAMP | **Redis 캐싱 시점 (Aging 기법용)** |
-| created_at | TIMESTAMP | 생성일시 |
+| rating | FLOAT | 평점 |
+| review_count | INTEGER | 리뷰 수 |
+| is_best | VARCHAR(1) | 베스트 상품 여부 |
+| created_at | TIMESTAMP | 등록일 |
+| **order_count** | INTEGER | **누적 판매 수 (인덱스, 캐시 분리 적재 기준)** |
+| created_datetime | TIMESTAMP | 실제 추가되는 시각 |
+| updated_datetime | TIMESTAMP | 실제 수정되는 시각 |
 
 ### Orders Table
 
 | Column | Type | Description |
 |--------|------|-------------|
-| order_id | VARCHAR(50) | Primary Key |
+| order_id | VARCHAR(100) | Primary Key |
 | user_id | VARCHAR(50) | Foreign Key (Users) |
 | product_id | VARCHAR(50) | Foreign Key (Products) |
 | quantity | INTEGER | 주문 수량 |
 | total_amount | INTEGER | 총 금액 |
 | shipping_cost | INTEGER | 배송비 |
 | discount_amount | INTEGER | 할인 금액 |
-| payment_method | VARCHAR(20) | 결제 방식 |
-| status | VARCHAR(20) | 주문 상태 |
+| payment_method | VARCHAR(50) | 결제 방식 |
+| status | VARCHAR(20) | 주문 상태 (인덱스) |
 | category | VARCHAR(50) | 상품 카테고리 (비정규화) |
-| user_region | VARCHAR(50) | 사용자 지역 (비정규화) |
-| user_gender | CHAR(1) | 사용자 성별 (비정규화) |
-| user_age_group | VARCHAR(10) | 사용자 연령대 (비정규화) |
-| created_at | TIMESTAMP | 생성일시 |
+| user_name | VARCHAR(100) | 유저 이름 (비정규화) |
+| user_region | VARCHAR(100) | 유저 지역 (비정규화) |
+| user_gender | VARCHAR(10) | 유저 성별 (비정규화) |
+| user_age_group | VARCHAR(20) | 연령대 (비정규화) |
+| created_at | TIMESTAMP | 주문 발생 시간 (인덱스) |
+| created_datetime | TIMESTAMP | 실제 추가되는 시각 |
+| updated_datetime | TIMESTAMP | 실제 수정되는 시각 |
 
-## 4. Redis 캐싱을 위한 last_cached_at 컬럼
+## 4. Redis 캐싱 - 구매이력/미구매 분리 적재
 
 ### 목적
-- **Aging 기법**: 캐시 교체 시 신규 데이터와 기존 데이터를 균형있게 선택
-- **기아(Starvation) 방지**: 특정 데이터가 계속 캐시되지 않는 문제 해결
+- **구매이력 분리**: 구매 고객과 미구매 고객을 분리하여 현실적 캐시 풀 구성
+- **재구매 기회**: 오래 전 구매한 고객에게 재구매 기회 제공
+- **신규 고객 노출**: 최근 가입한 미구매 고객에게 첫 구매 기회 부여
 
-### 동작 방식
-```python
-# Cache Worker가 50초마다 실행
-# 1. 신규 데이터 500건 (last_cached_at IS NULL)
-# 2. 기존 데이터 500건 (ORDER BY last_cached_at ASC - 가장 오래된 것 우선)
-# 3. 캐싱 후 last_cached_at = NOW() 업데이트
+### 고객 적재 방식 (1000명)
+```
+구매이력 고객 600명 (last_ordered_at ASC - 구매한 지 가장 오래된 순)
++ 미구매 고객 400명 (created_at DESC - 최근 가입 순)
+= 총 1000명 (미구매 부족 시 구매이력 풀 확대)
 ```
 
-### 쿼리 예시
-```sql
--- 아직 캐시되지 않은 신규 데이터
-SELECT * FROM users
-WHERE last_cached_at IS NULL
-LIMIT 500;
+### 상품 적재 방식 (1000개)
+```
+인기 상품 700개 (order_count DESC - 판매량 높은 순)
++ 신상품 300개 (order_count == 0, created_at DESC - 최신 등록순)
+= 총 1000개 (신상품 부족 시 인기상품 풀 확대)
+```
 
--- 가장 오래전에 캐시된 데이터
-SELECT * FROM users
-WHERE last_cached_at IS NOT NULL
-ORDER BY last_cached_at ASC
-LIMIT 500;
-
--- 캐싱 후 업데이트
-UPDATE users
-SET last_cached_at = NOW()
-WHERE user_id IN (...);
+### 구매 성향 기반 선택
+캐싱된 1000명 중 **구매 성향 상위 200명**이 실제 주문 후보로 선택됩니다:
+```python
+최종 점수 = 기본 점수(인구통계) x 시간대 변동 x 마케팅 부스트 x 생활 이벤트
 ```
 
 ### 성능 향상
@@ -163,7 +173,21 @@ WHERE user_id IN (...);
 | 조회 속도 | 10-100ms | 0.1-1ms |
 | 개선율 | - | 98% 감소, 100배 향상 |
 
-## 5. Operations
+## 5. 고객 등급 시스템
+
+### 등급 기준 (6개월 누적)
+| 등급 | 누적 금액 | 주문 횟수 |
+|------|----------|----------|
+| VIP | 300만원 이상 | 15회 이상 |
+| GOLD | 100만원 이상 | 8회 이상 |
+| SILVER | 30만원 이상 | 3회 이상 |
+| BRONZE | 기본 (조건 미달) | - |
+
+### 갱신 주기
+- **실시간 시스템**: 10분마다 배치 갱신 (`apps/batch/grade_updater.py`)
+- **1년치 스크립트**: 7일마다 갱신
+
+## 6. Operations
 
 ### Initialize Database (Create Tables)
 Run the following command to create tables for the configured `DB_TYPE`:
@@ -209,7 +233,7 @@ new_order = crud.create_order(db, {
 db.close()
 ```
 
-## 6. Redis Cache Client
+## 7. Redis Cache Client
 
 ### 사용법 (cache/client.py)
 
@@ -247,7 +271,7 @@ docker exec local_redis redis-cli hlen cache:products   # 1000
 docker exec local_redis redis-cli hrandfield cache:users 1 withvalues
 ```
 
-## 7. Database Connection Testing
+## 8. Database Connection Testing
 
 ### PostgreSQL 연결 테스트
 ```bash
@@ -274,7 +298,7 @@ docker exec local_redis redis-cli hlen cache:users
 docker exec local_redis redis-cli hlen cache:products
 ```
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 ### DB 연결 실패
 ```bash
@@ -300,18 +324,22 @@ docker exec local_redis redis-cli hlen cache:users
 docker-compose restart redis cache-worker
 ```
 
-### last_cached_at 관련 문제
+### 캐시 적재 관련 확인
 ```sql
--- 캐시되지 않은 데이터 수 확인
-SELECT COUNT(*) FROM users WHERE last_cached_at IS NULL;
-SELECT COUNT(*) FROM products WHERE last_cached_at IS NULL;
+-- 구매이력 고객 수 확인
+SELECT COUNT(*) FROM users WHERE last_ordered_at IS NOT NULL;
 
--- last_cached_at 초기화 (전체 재캐싱 필요 시)
-UPDATE users SET last_cached_at = NULL;
-UPDATE products SET last_cached_at = NULL;
+-- 미구매 고객 수 확인
+SELECT COUNT(*) FROM users WHERE last_ordered_at IS NULL;
+
+-- 인기 상품 수 확인
+SELECT COUNT(*) FROM products WHERE order_count > 0;
+
+-- 등급별 고객 분포
+SELECT grade, COUNT(*) FROM users GROUP BY grade ORDER BY COUNT(*) DESC;
 ```
 
-## 9. 참고 자료
+## 10. 참고 자료
 
 - **[KAFKA_PRODUCER_GUIDE.md](KAFKA_PRODUCER_GUIDE.md)** - Producer 가이드 (Redis 캐시 모드)
 - **[KAFKA_CONSUMER_GUIDE.md](KAFKA_CONSUMER_GUIDE.md)** - Consumer 가이드

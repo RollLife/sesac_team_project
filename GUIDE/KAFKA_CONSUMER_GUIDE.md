@@ -6,25 +6,25 @@
 
 **Consumer는 Kafka 토픽에서 메시지를 소비하여 PostgreSQL에 저장하는 역할을 담당합니다.**
 
-### 시스템 아키텍처 (Redis 캐싱 + Aging)
+### 시스템 아키텍처 (Redis 캐싱 + 분리적재)
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
-│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+│  (원본 DB)  │     │(분리적재50초)│     │ (1000건)    │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
       ┌────────────────────────────────────────┘
       ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Producer   │────▶│   Kafka     │────▶│  Consumers  │
-│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+│(성향기반선택)│     │ (3 brokers) │     │(9 instances)│
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
-                                               ▼
-                                        ┌─────────────┐
-                                        │ PostgreSQL  │
-                                        │   (저장)    │
+┌─────────────┐                                ▼
+│Grade Updater│                         ┌─────────────┐
+│ (10분 배치) │                         │ PostgreSQL  │
+└─────────────┘                         │   (저장)    │
                                         └─────────────┘
 ```
 
@@ -158,11 +158,13 @@ python kafka/consumers/order_consumer.py --id order_consumer_3
 
 ```
 1. Cache-Worker (50초마다)
-   └─ DB에서 Aging 기법으로 1,000건 조회
+   └─ DB에서 분리 적재로 1,000건 조회
+      ├─ 고객: 구매이력 600명 (last_ordered_at ASC) + 미구매 400명 (created_at DESC)
+      └─ 상품: 인기 700개 (order_count DESC) + 신상품 300개 (created_at DESC)
    └─ Redis에 캐싱 (cache:users, cache:products)
 
-2. Producer (2~8초마다)
-   └─ Redis에서 랜덤 조회 (HRANDFIELD)
+2. Producer (3~5초마다)
+   └─ Redis에서 구매 성향 상위 200명 선택
    └─ 주문 데이터 생성
    └─ Kafka 토픽에 발행 (DB 저장 X)
 

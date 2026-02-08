@@ -11,7 +11,6 @@ import sys
 import time
 import random
 import threading
-import uuid
 import argparse
 from datetime import datetime
 
@@ -21,12 +20,11 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from sqlalchemy.orm import Session
-from database import database, models
 from collect.product_generator import ProductGenerator
 from collect.order_generator import OrderGenerator
+from collect.purchase_propensity import select_top_buyers
 from collect.scenario_engine import (
-    ScenarioEngine, DEFAULT_CONFIG, BASELINE_CONFIG,
+    ScenarioEngine, BASELINE_CONFIG,
     estimate_duration_minutes, get_hourly_multiplier,
     get_time_based_scenario_number,
 )
@@ -37,7 +35,6 @@ from kafka.config import KAFKA_TOPIC_ORDERS, KAFKA_TOPIC_PRODUCTS
 
 # Redis Cache import
 from cache.client import get_redis_client
-from cache.config import REDIS_ENABLED
 
 
 class RealtimeDataGenerator:
@@ -210,12 +207,23 @@ class RealtimeDataGenerator:
     # ========================================
 
     def generate_orders_continuously(self):
-        """주문 데이터를 지속적으로 생성 - 시나리오 가중치 반영"""
+        """
+        주문 데이터를 지속적으로 생성 - 구매 성향 기반
+        - 3~5초 간격으로 1건씩 생성
+        - 캐싱된 고객 중 구매 성향 상위 N명에서 선택
+        """
         order_generator = OrderGenerator()
         kafka_producer = KafkaProducer()
         redis_client = get_redis_client()
 
-        print("🚀 주문 데이터 생성 스레드 시작 (시나리오 모드)...")
+        # 구매 성향 상위 N명 (캐시 갱신 주기에 맞춰 재계산)
+        TOP_N = 200
+        ORDER_INTERVAL_MIN = 3.0  # 최소 간격 (초)
+        ORDER_INTERVAL_MAX = 5.0  # 최대 간격 (초)
+
+        print("🚀 주문 데이터 생성 스레드 시작 (구매 성향 기반)...")
+        print(f"   - 주문 간격: {ORDER_INTERVAL_MIN}~{ORDER_INTERVAL_MAX}초")
+        print(f"   - 성향 상위: {TOP_N}명에서 선택")
 
         # Redis 연결 대기
         retry_count = 0
@@ -229,6 +237,11 @@ class RealtimeDataGenerator:
             print("❌ Redis 연결 실패. 주문 생성을 시작할 수 없습니다.")
             return
 
+        # 성향 풀 캐시 (주기적으로 갱신)
+        propensity_pool = []
+        last_propensity_refresh = 0
+        PROPENSITY_REFRESH_INTERVAL = 50  # 캐시 갱신 주기와 동일 (50초)
+
         try:
             while self.running:
                 # 타이머 만료 체크 → 기본 패턴 복귀
@@ -239,32 +252,28 @@ class RealtimeDataGenerator:
 
                 config = self.get_scenario_config()
 
-                # 1. 배치 크기 및 대기시간 결정 (시나리오 기반)
-                is_peak_time = random.random() <= config.get("peak_probability", 0.02)
+                # 1. 구매 성향 풀 갱신 (50초마다 또는 풀이 비었을 때)
+                now = time.time()
+                if not propensity_pool or (now - last_propensity_refresh) >= PROPENSITY_REFRESH_INTERVAL:
+                    try:
+                        user_pool = redis_client.get_random_users(count=1000)
+                        if user_pool:
+                            propensity_pool = select_top_buyers(user_pool, TOP_N)
+                            last_propensity_refresh = now
+                        else:
+                            print("⚠️ Redis 캐시에 유저 데이터가 없습니다. cache-worker가 실행 중인지 확인하세요.")
+                            time.sleep(5)
+                            continue
+                    except Exception as e:
+                        print(f"❌ 구매 성향 계산 실패: {e}")
+                        time.sleep(5)
+                        continue
 
-                if is_peak_time:
-                    print("🔥 핫딜 타임! 주문 폭주! 🔥")
-                    pv = config.get("peak_volume", {"min": 100, "max": 200})
-                    order_count = random.randint(pv["min"], pv["max"])
-                    sleep_time = 0.05
-                else:
-                    ov = config.get("order_volume", {"min": 10, "max": 50})
-                    order_count = random.randint(ov["min"], ov["max"])
-                    iv = config.get("interval", {"min": 0.2, "max": 0.8})
-                    sleep_time = random.uniform(iv["min"], iv["max"])
-
-                # 시간대별 주문량 보정 (현실적 트래픽 패턴)
-                hourly_mult = get_hourly_multiplier()
-                order_count = max(1, int(order_count * hourly_mult))
-
-                # 2. Redis에서 유저/상품 풀 가져오기 (배치 단위)
-                pool_size = min(order_count * 2, 200)
+                # 2. 상품 풀 가져오기
                 try:
-                    user_pool = redis_client.get_random_users(count=pool_size)
-                    product_pool = redis_client.get_random_products(count=pool_size)
-
-                    if not user_pool or not product_pool:
-                        print("⚠️ Redis 캐시에 데이터가 없습니다. cache-worker가 실행 중인지 확인하세요.")
+                    product_pool = redis_client.get_random_products(count=200)
+                    if not product_pool:
+                        print("⚠️ Redis 캐시에 상품 데이터가 없습니다.")
                         time.sleep(5)
                         continue
                 except Exception as e:
@@ -272,72 +281,64 @@ class RealtimeDataGenerator:
                     time.sleep(5)
                     continue
 
-                # 3. 주문 생성 후 Kafka에 발행
-                success_count = 0
-                failed_count = 0
+                # 3. 성향 점수 기반 가중치로 고객 1명 선택
+                try:
+                    users_only = [u for u, _ in propensity_pool]
 
-                for _ in range(order_count):
-                    try:
-                        # 시나리오 가중치 기반 유저/상품 선택
-                        user = self._weighted_select_user(user_pool, config)
-                        product = self._weighted_select_product(product_pool, config)
+                    # 시나리오 가중치도 반영
+                    user = self._weighted_select_user(users_only, config)
+                    product = self._weighted_select_product(product_pool, config)
 
-                        if not user or not product:
-                            failed_count += 1
-                            continue
+                    if not user or not product:
+                        time.sleep(1)
+                        continue
 
-                        order_data = order_generator.generate_order(user, product)
+                    order_data = order_generator.generate_order(user, product)
 
-                        # order_id 생성 (UUID)
-                        order_data['order_id'] = str(uuid.uuid4())
+                    # 역정규화 데이터 추가
+                    order_data['category'] = product.get('category', 'Unknown')
+                    user_address = user.get('address', '')
+                    order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
+                    order_data['user_gender'] = user.get('gender', 'Unknown')
+                    user_age = user.get('age')
+                    order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
+                    order_data['created_at'] = datetime.now()
 
-                        # 시나리오 기반 수량 오버라이드
-                        q_weights = config.get("quantity_weights", [80, 10, 5, 3, 2])
-                        order_data['quantity'] = random.choices([1, 2, 3, 4, 5], weights=q_weights, k=1)[0]
+                    # Kafka에 발행
+                    kafka_producer.send_event(
+                        topic=KAFKA_TOPIC_ORDERS,
+                        key=order_data['user_id'],
+                        data=order_data,
+                        event_type='order_created'
+                    )
 
-                        # 수량 변경에 따른 금액 재계산
-                        p_price = product.get('price', 0)
-                        qty = order_data['quantity']
-                        order_data['total_amount'] = max(0, (p_price * qty) + order_data['shipping_cost'] - order_data['discount_amount'])
+                    with self.lock:
+                        self.stats['orders_created'] += 1
 
-                        # 역정규화 데이터 추가
-                        order_data['category'] = product.get('category', 'Unknown')
-                        user_address = user.get('address', '')
-                        order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
-                        order_data['user_gender'] = user.get('gender', 'Unknown')
-                        user_age = user.get('age')
-                        order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
-                        order_data['created_at'] = datetime.now()
+                    # 로그 출력 (10건마다)
+                    with self.lock:
+                        total_orders = self.stats['orders_created']
+                    if total_orders % 10 == 0:
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
+                        tps = total_orders / elapsed if elapsed > 0 else 0
+                        scenario_desc = config.get("description", "기본")
+                        print(f"[{timestamp}] 🛒 주문 누적: {total_orders:,}건 | "
+                              f"TPS: {tps:.2f} | 📋 {scenario_desc}")
 
-                        # Kafka에만 발행
-                        kafka_producer.send_event(
-                            topic=KAFKA_TOPIC_ORDERS,
-                            key=order_data['user_id'],
-                            data=order_data,
-                            event_type='order_created'
-                        )
-                        success_count += 1
+                except Exception as e:
+                    with self.lock:
+                        self.stats['orders_failed'] += 1
 
-                        with self.lock:
-                            self.stats['orders_created'] += 1
+                # 4. 3~5초 대기
+                sleep_time = random.uniform(ORDER_INTERVAL_MIN, ORDER_INTERVAL_MAX)
 
-                    except Exception as e:
-                        failed_count += 1
-                        with self.lock:
-                            self.stats['orders_failed'] += 1
+                # 시간대별 대기시간 보정 (새벽엔 더 느리게, 피크엔 더 빠르게)
+                hourly_mult = get_hourly_multiplier()
+                if hourly_mult > 0:
+                    sleep_time = sleep_time / hourly_mult
+                sleep_time = max(1.0, min(sleep_time, 30.0))  # 1초~30초 범위 제한
 
-                # 4. 로그 출력
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                with self.lock:
-                    total_orders = self.stats['orders_created']
-                    elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
-                    tps = total_orders / elapsed if elapsed > 0 else 0
-
-                scenario_desc = config.get("description", "기본")
-                print(f"[{timestamp}] 🛒 주문 발행: {success_count}/{order_count}건 성공 | "
-                      f"누적: {total_orders:,}건 | TPS: {tps:.2f} | 📋 {scenario_desc}")
-
-                # 5. 대기
                 time.sleep(sleep_time)
 
         except Exception as e:
@@ -349,19 +350,20 @@ class RealtimeDataGenerator:
             print("🛑 주문 데이터 생성 스레드 종료")
 
     def generate_products_continuously(self):
-        """상품 데이터를 지속적으로 생성 (10~20초 간격, 100건씩) - Kafka에만 발행"""
+        """상품 데이터를 지속적으로 생성 (6~8초 간격, 1건씩) - Kafka에만 발행"""
         kafka_producer = KafkaProducer()
         product_generator = ProductGenerator()
 
+        PRODUCT_INTERVAL_MIN = 6.0  # 최소 간격 (초)
+        PRODUCT_INTERVAL_MAX = 8.0  # 최대 간격 (초)
+
         print("🚀 상품 데이터 생성 스레드 시작 (Kafka 발행 모드)...")
+        print(f"   - 상품 간격: {PRODUCT_INTERVAL_MIN}~{PRODUCT_INTERVAL_MAX}초, 1건씩")
 
         try:
             while self.running:
-                # 1. 100건 생성
-                products_list = product_generator.generate_batch(100)
-
-                success_count = 0
-                failed_count = 0
+                # 1. 1건 생성
+                products_list = product_generator.generate_batch(1)
 
                 for product_data in products_list:
                     try:
@@ -379,28 +381,25 @@ class RealtimeDataGenerator:
                             data=product_data,
                             event_type='product_created'
                         )
-                        success_count += 1
 
                         with self.lock:
                             self.stats['products_created'] += 1
 
                     except Exception as e:
-                        failed_count += 1
                         with self.lock:
                             self.stats['products_failed'] += 1
 
-                # 2. 로그 출력
-                timestamp = datetime.now().strftime("%H:%M:%S")
+                # 2. 로그 출력 (10건마다)
                 with self.lock:
                     total_products = self.stats['products_created']
+                if total_products % 10 == 0:
+                    timestamp = datetime.now().strftime("%H:%M:%S")
                     elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                     tps = total_products / elapsed if elapsed > 0 else 0
+                    print(f"[{timestamp}] 📦 상품 누적: {total_products:,}개 | TPS: {tps:.2f}")
 
-                print(f"[{timestamp}] 📦 상품 발행: {success_count}/100건 성공 | "
-                      f"누적: {total_products:,}개 | TPS: {tps:.2f}")
-
-                # 3. 랜덤 대기 (10~20초)
-                wait_time = random.uniform(10, 20)
+                # 3. 6~8초 대기
+                wait_time = random.uniform(PRODUCT_INTERVAL_MIN, PRODUCT_INTERVAL_MAX)
                 time.sleep(wait_time)
 
         except Exception as e:
@@ -502,8 +501,9 @@ class RealtimeDataGenerator:
             print("💡 시나리오 전환: scenario_changer.py 실행\n")
 
         print("📋 생성 규칙:")
-        print("  - 🛒 주문: 시나리오 가중치 + 시간대별 보정 (Redis 캐시에서 유저/상품 조회)")
-        print("  - 📦 상품: 10~20초 간격으로 100건씩 생성")
+        print("  - 🛒 주문: 3~5초 간격, 구매 성향 상위 200명에서 선택")
+        print("  - 📦 상품: 6~8초 간격으로 1건씩 생성")
+        print("  - 🧠 구매 성향: 기본(인구통계) × 시간대 × 마케팅 × 생활이벤트")
         print("  - 🕐 시간대별 트래픽 자동 보정 (새벽 저조 → 저녁 피크)")
         print("  - ⏱️ 시나리오 타이머 종료 시 기본 패턴으로 자동 복귀")
         print("  - Ctrl+C로 중지\n")

@@ -4,19 +4,19 @@
 
 `python-dev` 컨테이너는 Docker 환경에서 Python 코드를 대화형으로 테스트하고 개발할 수 있는 환경을 제공합니다.
 
-### 시스템 아키텍처 (Redis 캐싱 + Aging)
+### 시스템 아키텍처 (Redis 캐싱 + 구매이력/미구매 분리 적재)
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
-│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+│  (원본 DB)  │     │(분리적재50초)│     │ (1000건)    │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
       ┌────────────────────────────────────────┘
       ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Producer   │────▶│   Kafka     │────▶│  Consumers  │
-│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+│(성향기반선택)│     │ (3 brokers) │     │(9 instances)│
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
                                                ▼
@@ -290,9 +290,9 @@ with engine.connect() as conn:
     result = conn.execute(text('SELECT COUNT(*) FROM orders'))
     print(f'주문 수: {result.fetchone()[0]:,}')
 
-    # 캐시되지 않은 유저 수 확인
-    result = conn.execute(text('SELECT COUNT(*) FROM users WHERE last_cached_at IS NULL'))
-    print(f'캐시 안된 유저: {result.fetchone()[0]:,}')
+    # 미구매 고객 수 확인
+    result = conn.execute(text('SELECT COUNT(*) FROM users WHERE last_ordered_at IS NULL'))
+    print(f'미구매 고객: {result.fetchone()[0]:,}')
 "
 ```
 
