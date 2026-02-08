@@ -167,6 +167,7 @@ services:
       GF_INSTALL_PLUGINS: frser-sqlite-datasource
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin # 들어오자마자 '관리자(Admin)' 권한 주기
+      GF_USERS_DEFAULT_THEME: light # 기본 테마를 라이트로 설정
     volumes:
       # 1. (기존) 그라파나 데이터 저장소 (사용자 비번 등 저장)
       - grafana_data:/var/lib/grafana

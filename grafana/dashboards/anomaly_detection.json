@@ -53,11 +53,11 @@
                             },
                             {
                                 "color": "yellow",
-                                "value": 1000000
+                                "value": 50000
                             },
                             {
                                 "color": "red",
-                                "value": 10000000
+                                "value": 100000
                             }
                         ]
                     },
@@ -97,7 +97,7 @@
                 }
             ],
             "title": "⚠️ 유저당 평균 매출",
-            "description": "1천만원 이상이면 이상 징후",
+            "description": "10만원 이상이면 이상 징후",
             "type": "stat"
         },
         {
@@ -120,11 +120,11 @@
                             },
                             {
                                 "color": "yellow",
-                                "value": 100
+                                "value": 10
                             },
                             {
                                 "color": "red",
-                                "value": 500
+                                "value": 30
                             }
                         ]
                     },
@@ -164,7 +164,7 @@
                 }
             ],
             "title": "⚠️ 분당 최대 주문수",
-            "description": "500건 이상이면 이상 급증",
+            "description": "30건 이상이면 이상 급증",
             "type": "stat"
         },
         {
@@ -187,11 +187,11 @@
                             },
                             {
                                 "color": "yellow",
-                                "value": 10000000
+                                "value": 1000000
                             },
                             {
                                 "color": "red",
-                                "value": 100000000
+                                "value": 5000000
                             }
                         ]
                     },
@@ -231,7 +231,7 @@
                 }
             ],
             "title": "⚠️ 최대 단일 주문금액",
-            "description": "1억 이상이면 이상 거래",
+            "description": "500만원 이상이면 이상 거래",
             "type": "stat"
         },
         {
@@ -254,11 +254,11 @@
                             },
                             {
                                 "color": "yellow",
-                                "value": 50
+                                "value": 5
                             },
                             {
                                 "color": "red",
-                                "value": 100
+                                "value": 10
                             }
                         ]
                     },
@@ -298,7 +298,7 @@
                 }
             ],
             "title": "⚠️ 유저 최대 구매횟수",
-            "description": "100회 이상이면 봇 의심",
+            "description": "10회 이상이면 봇 의심",
             "type": "stat"
         },
         {
