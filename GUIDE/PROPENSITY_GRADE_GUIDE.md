@@ -102,7 +102,7 @@ for user, score in top_buyers:
 
 | 등급 | 누적 금액 | 주문 횟수 | 비고 |
 |------|----------|----------|------|
-| **VIP** | 300만원 이상 | 15회 이상 | 최상위 |
+| **VIP** | 200만원 이상 | 10회 이상 | 최상위 |
 | **GOLD** | 100만원 이상 | 8회 이상 | |
 | **SILVER** | 30만원 이상 | 3회 이상 | |
 | **BRONZE** | 조건 미달 | - | 기본 등급 |
@@ -224,7 +224,7 @@ LIFE_EVENT_MULTIPLIERS = [1.0, 1.5, 3.0]  # 배수
 
 ```python
 GRADE_CRITERIA = {
-    "VIP":    {"min_amount": 3_000_000, "min_orders": 15},
+    "VIP": {"min_amount": 2_000_000, "min_orders": 10},
     "GOLD":   {"min_amount": 1_000_000, "min_orders": 8},
     "SILVER": {"min_amount":   300_000, "min_orders": 3},
     "BRONZE": {"min_amount":         0, "min_orders": 0},

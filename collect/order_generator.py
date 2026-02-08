@@ -19,6 +19,10 @@ class OrderGenerator:
         "weights": [80, 10, 5, 3, 2]
     }
 
+    # 장바구니 크기 분포 (1~10개, 소규모 장바구니 비중 높음, 평균 ~3.3개)
+    CART_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    CART_SIZE_WEIGHTS = [25, 20, 15, 12, 10, 7, 5, 3, 2, 1]
+
     def __init__(self):
         # product_rules.json에서 카테고리별 주문 규칙 로드
         self.category_rules = {}
@@ -145,6 +149,15 @@ class OrderGenerator:
             picked_product = random.choices(products, weights=product_weights, k=1)[0]
             orders.append(self.generate_order(picked_user, picked_product))
         return orders
+
+    @classmethod
+    def get_cart_size(cls):
+        """장바구니 크기 결정 (1~10개, 평균 ~3.3개)"""
+        return random.choices(
+            cls.CART_SIZE_OPTIONS,
+            weights=cls.CART_SIZE_WEIGHTS,
+            k=1
+        )[0]
 
 if __name__ == "__main__":
     # Test logic

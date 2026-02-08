@@ -48,8 +48,26 @@ class OrderConsumer:
                 # Producer가 이미 역정규화 데이터를 포함해서 보내므로 검증 불필요
                 db_order = models.Order(**order_data)
                 self.db.add(db_order)
+
+                # 3. User.last_ordered_at 갱신 (캐시 600+400 분리에 필요)
+                user_id = order_data.get('user_id')
+                if user_id:
+                    db_user = self.db.query(models.User).filter(
+                        models.User.user_id == user_id
+                    ).first()
+                    if db_user:
+                        db_user.last_ordered_at = db_order.created_at
+
+                # 4. Product.order_count 갱신 (캐시 700+300 분리에 필요)
+                product_id = order_data.get('product_id')
+                if product_id:
+                    db_product = self.db.query(models.Product).filter(
+                        models.Product.product_id == product_id
+                    ).first()
+                    if db_product:
+                        db_product.order_count = (db_product.order_count or 0) + 1
+
                 self.db.commit()
-                self.db.refresh(db_order)
 
                 logger.info(
                     f"[{self.consumer_id}] 주문 저장 완료: {order_data['order_id']}"

@@ -216,14 +216,12 @@ class RealtimeDataGenerator:
         kafka_producer = KafkaProducer()
         redis_client = get_redis_client()
 
-        # 구매 성향 상위 N명 (캐시 갱신 주기에 맞춰 재계산)
-        TOP_N = 200
         ORDER_INTERVAL_MIN = 3.0  # 최소 간격 (초)
         ORDER_INTERVAL_MAX = 5.0  # 최대 간격 (초)
 
         print("🚀 주문 데이터 생성 스레드 시작 (구매 성향 기반)...")
         print(f"   - 주문 간격: {ORDER_INTERVAL_MIN}~{ORDER_INTERVAL_MAX}초")
-        print(f"   - 성향 상위: {TOP_N}명에서 선택")
+        print(f"   - 캐시 1000명 전체에서 성향점수 가중치로 선택")
 
         # Redis 연결 대기
         retry_count = 0
@@ -258,7 +256,7 @@ class RealtimeDataGenerator:
                     try:
                         user_pool = redis_client.get_random_users(count=1000)
                         if user_pool:
-                            propensity_pool = select_top_buyers(user_pool, TOP_N)
+                            propensity_pool = select_top_buyers(user_pool, len(user_pool))
                             last_propensity_refresh = now
                         else:
                             print("⚠️ Redis 캐시에 유저 데이터가 없습니다. cache-worker가 실행 중인지 확인하세요.")
@@ -281,39 +279,47 @@ class RealtimeDataGenerator:
                     time.sleep(5)
                     continue
 
-                # 3. 성향 점수 기반 가중치로 고객 1명 선택
+                # 3. 성향 점수 기반 가중치로 고객 1명 선택 + 장바구니 구매
                 try:
                     users_only = [u for u, _ in propensity_pool]
 
                     # 시나리오 가중치도 반영
                     user = self._weighted_select_user(users_only, config)
-                    product = self._weighted_select_product(product_pool, config)
 
-                    if not user or not product:
+                    if not user:
                         time.sleep(1)
                         continue
 
-                    order_data = order_generator.generate_order(user, product)
+                    # 장바구니: 1~10개 상품을 한번에 구매
+                    cart_size = order_generator.get_cart_size()
+                    cart_timestamp = datetime.now()
 
-                    # 역정규화 데이터 추가
-                    order_data['category'] = product.get('category', 'Unknown')
-                    user_address = user.get('address', '')
-                    order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
-                    order_data['user_gender'] = user.get('gender', 'Unknown')
-                    user_age = user.get('age')
-                    order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
-                    order_data['created_at'] = datetime.now()
+                    for _ in range(cart_size):
+                        product = self._weighted_select_product(product_pool, config)
+                        if not product:
+                            continue
 
-                    # Kafka에 발행
-                    kafka_producer.send_event(
-                        topic=KAFKA_TOPIC_ORDERS,
-                        key=order_data['user_id'],
-                        data=order_data,
-                        event_type='order_created'
-                    )
+                        order_data = order_generator.generate_order(user, product)
 
-                    with self.lock:
-                        self.stats['orders_created'] += 1
+                        # 역정규화 데이터 추가
+                        order_data['category'] = product.get('category', 'Unknown')
+                        user_address = user.get('address', '')
+                        order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
+                        order_data['user_gender'] = user.get('gender', 'Unknown')
+                        user_age = user.get('age')
+                        order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
+                        order_data['created_at'] = cart_timestamp
+
+                        # Kafka에 발행
+                        kafka_producer.send_event(
+                            topic=KAFKA_TOPIC_ORDERS,
+                            key=order_data['user_id'],
+                            data=order_data,
+                            event_type='order_created'
+                        )
+
+                        with self.lock:
+                            self.stats['orders_created'] += 1
 
                     # 로그 출력 (10건마다)
                     with self.lock:
@@ -323,7 +329,8 @@ class RealtimeDataGenerator:
                         elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                         tps = total_orders / elapsed if elapsed > 0 else 0
                         scenario_desc = config.get("description", "기본")
-                        print(f"[{timestamp}] 🛒 주문 누적: {total_orders:,}건 | "
+                        print(f"[{timestamp}] 🛒 주문 누적: {total_orders:,}건 "
+                              f"(장바구니 {cart_size}개) | "
                               f"TPS: {tps:.2f} | 📋 {scenario_desc}")
 
                 except Exception as e:
@@ -501,7 +508,7 @@ class RealtimeDataGenerator:
             print("💡 시나리오 전환: scenario_changer.py 실행\n")
 
         print("📋 생성 규칙:")
-        print("  - 🛒 주문: 3~5초 간격, 구매 성향 상위 200명에서 선택")
+        print("  - 🛒 주문: 3~5초 간격, 장바구니(1~10개) 단위 구매")
         print("  - 📦 상품: 6~8초 간격으로 1건씩 생성")
         print("  - 🧠 구매 성향: 기본(인구통계) × 시간대 × 마케팅 × 생활이벤트")
         print("  - 🕐 시간대별 트래픽 자동 보정 (새벽 저조 → 저녁 피크)")

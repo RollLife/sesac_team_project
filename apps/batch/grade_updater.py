@@ -4,9 +4,10 @@
 - 10분마다 전체 고객의 등급을 갱신
 - 6개월 누적 기준으로 등급 결정:
   - BRONZE: 기본 (조건 미달)
-  - SILVER: 30만원 이상 + 3회 이상
-  - GOLD: 100만원 이상 + 8회 이상
-  - VIP: 200만원 이상 + 10회 이상
+  - SILVER: 50만원 이상 + 5회 이상
+  - GOLD: 200만원 이상 + 15회 이상
+  - VIP: 500만원 이상 + 30회 이상
+- 강등은 한 번에 1단계씩만 허용 (VIP→GOLD→SILVER→BRONZE)
 """
 
 import os
@@ -40,11 +41,13 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 GRADE_CRITERIA = {
-    "VIP":    {"min_amount": 2_000_000, "min_orders": 10},
-    "GOLD":   {"min_amount": 1_000_000, "min_orders": 8},
-    "SILVER": {"min_amount":   300_000, "min_orders": 3},
-    "BRONZE": {"min_amount":         0, "min_orders": 0},
+    "VIP":     {"min_amount": 5_000_000, "min_orders": 30},
+    "GOLD":    {"min_amount": 2_000_000, "min_orders": 15},
+    "SILVER":  {"min_amount":   500_000, "min_orders": 5},
+    "BRONZE":  {"min_amount":         0, "min_orders": 0},
 }
+
+GRADE_ORDER = ["BRONZE", "SILVER", "GOLD", "VIP"]
 
 # 갱신 주기
 REFRESH_INTERVAL = 600  # 10분 (초)
@@ -111,13 +114,16 @@ def update_all_grades(db: Session, reference_date: datetime = None) -> dict:
         old_grade = user.grade
 
         if new_grade != old_grade:
-            grade_order = ["BRONZE", "SILVER", "GOLD", "VIP"]
-            old_idx = grade_order.index(old_grade) if old_grade in grade_order else 0
-            new_idx = grade_order.index(new_grade)
+            old_idx = GRADE_ORDER.index(old_grade) if old_grade in GRADE_ORDER else 0
+            new_idx = GRADE_ORDER.index(new_grade)
 
             if new_idx > old_idx:
+                # 승급: 제한 없이 즉시 반영
                 stats["upgraded"] += 1
             else:
+                # 강등: 한 번에 1단계만
+                new_idx = old_idx - 1
+                new_grade = GRADE_ORDER[new_idx]
                 stats["downgraded"] += 1
 
             user.grade = new_grade
@@ -177,10 +183,11 @@ class GradeUpdaterWorker:
         print(f"📋 설정:")
         print(f"  - 갱신 주기: {self.interval}초 ({self.interval // 60}분)")
         print(f"  - 등급 기준 (6개월 누적):")
-        print(f"    VIP:    200만원 이상 + 10회 이상")
-        print(f"    GOLD:   100만원 이상 + 8회 이상")
-        print(f"    SILVER: 30만원 이상 + 3회 이상")
-        print(f"    BRONZE: 기본 (조건 미달)")
+        print(f"    VIP: 500만원 이상 + 30회 이상")
+        print(f"    GOLD:    200만원 이상 + 15회 이상")
+        print(f"    SILVER:  50만원 이상 + 5회 이상")
+        print(f"    BRONZE:  기본 (조건 미달)")
+        print(f"  - 강등: 한 번에 1단계씩만 (VIP→GOLD→SILVER→BRONZE)")
         print(f"  - Ctrl+C로 중지\n")
 
         # 최초 1회 즉시 실행

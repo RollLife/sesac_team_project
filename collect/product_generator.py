@@ -84,8 +84,9 @@ class ProductGenerator:
         price_min = rule.get('price_min', 10000)
         price_max = rule.get('price_max', 100000)
         
-        # 기본 랜덤 가격에 브랜드 가중치 적용 및 100원 단위 절사
-        raw_price = random.randint(price_min, price_max) * brand_multiplier
+        # 베타 분포로 저가 치우침 가격 생성 (대부분 저가, 고가는 드묾)
+        beta_value = random.betavariate(2, 5)
+        raw_price = (price_min + beta_value * (price_max - price_min)) * brand_multiplier
         price = int(max(price_min, min(raw_price, price_max * 1.5)) // 100) * 100 
         
         # 할인 로직 (40% 확률로 할인 적용)
@@ -94,6 +95,10 @@ class ProductGenerator:
         else:
             org_price = price
             
+        # 1/100 확률로 가격 입력 오류 시뮬레이션 (판매가 > 정가)
+        if random.random() < 0.01:
+            org_price = int(price * random.uniform(0.5, 0.8) // 100) * 100
+
         discount_rate = (org_price - price) / org_price if org_price > price else 0
         
         # 데이터의 입체감을 위한 평점 및 리뷰 데이터 시나리오
@@ -114,6 +119,7 @@ class ProductGenerator:
             "rating": rating,
             "review_count": review_count,
             "is_best": "Y" if review_count > 1000 and rating > 4.5 else "N",
+            "order_count": 0,
             "created_datetime": datetime.now(),
             "updated_datetime": datetime.now()
         }

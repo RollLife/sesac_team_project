@@ -18,6 +18,7 @@
 import os
 import sys
 import random
+import subprocess
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 from collections import defaultdict
@@ -231,9 +232,6 @@ class HistoricalDataGenerator:
     PRODUCT_POPULAR_LIMIT = 700
     PRODUCT_NEW_LIMIT = 300
     POOL_SIZE = 1000
-
-    # 구매 성향 상위 N명
-    TOP_N_BUYERS = 200
 
     # 첫 주 랜덤 기간 (일)
     RANDOM_PHASE_DAYS = 7
@@ -524,7 +522,7 @@ class HistoricalDataGenerator:
                 hourly_counts[hour] += 1
                 diff -= 1
 
-        # 시간대별 주문 생성
+        # 시간대별 주문 생성 (장바구니 기반: 1회 쇼핑 = 1~10개 상품)
         for hour, count in hourly_counts.items():
             for _ in range(count):
                 minute = random.randint(0, 59)
@@ -533,14 +531,17 @@ class HistoricalDataGenerator:
 
                 # 구매 성향 기반 유저 선택
                 user = self.select_buyer_by_propensity(user_pool, config, hour)
-                product = self.select_product_by_scenario(product_pool, config)
 
-                if user and product:
-                    order = self.generate_order_for_datetime(user, product, order_datetime)
-                    orders.append(order)
+                if user:
+                    # 장바구니: 1~10개 상품을 한번에 구매
+                    cart_size = self.order_gen.get_cart_size()
 
-                    # 인메모리 추적 업데이트
-                    self.track_order(order, order_datetime)
+                    for _ in range(cart_size):
+                        product = self.select_product_by_scenario(product_pool, config)
+                        if product:
+                            order = self.generate_order_for_datetime(user, product, order_datetime)
+                            orders.append(order)
+                            self.track_order(order, order_datetime)
 
         return orders
 
@@ -730,6 +731,76 @@ class HistoricalDataGenerator:
 
 
 # ============================================================
+# Docker 컨테이너 관리 (데드락 방지)
+# ============================================================
+
+# 데이터 생성 중 DB 충돌을 유발할 수 있는 컨테이너 목록
+CONFLICTING_CONTAINERS = [
+    "order_consumer_1",
+    "order_consumer_2",
+    "order_consumer_3",
+    "product_consumer_1",
+    "product_consumer_2",
+    "product_consumer_3",
+    "user_consumer_1",
+    "user_consumer_2",
+    "user_consumer_3",
+    "grade_updater",
+    "realtime_producer",
+    "user_seeder",
+    "cache_worker",
+]
+
+
+def get_running_containers(container_names: list) -> list:
+    """주어진 컨테이너 중 현재 실행 중인 것만 반환"""
+    running = []
+    for name in container_names:
+        try:
+            result = subprocess.run(
+                ["docker", "inspect", "-f", "{{.State.Running}}", name],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0 and "true" in result.stdout.strip().lower():
+                running.append(name)
+        except Exception:
+            continue
+    return running
+
+
+def stop_containers(containers: list):
+    """컨테이너 일괄 중지"""
+    if not containers:
+        return
+    print(f"\n  Stopping {len(containers)} containers...")
+    try:
+        subprocess.run(
+            ["docker", "stop", *containers],
+            capture_output=True, text=True, timeout=60,
+        )
+        for c in containers:
+            print(f"    [STOPPED] {c}")
+    except Exception as e:
+        print(f"    [WARN] docker stop failed: {e}")
+
+
+def start_containers(containers: list):
+    """컨테이너 일괄 재시작"""
+    if not containers:
+        return
+    print(f"\n  Restarting {len(containers)} containers...")
+    try:
+        subprocess.run(
+            ["docker", "start", *containers],
+            capture_output=True, text=True, timeout=60,
+        )
+        for c in containers:
+            print(f"    [STARTED] {c}")
+    except Exception as e:
+        print(f"    [WARN] docker start failed: {e}")
+
+
+# ============================================================
 # 메인 실행
 # ============================================================
 
@@ -775,6 +846,14 @@ def main():
         print("Cancelled.")
         return
 
+    # 실행 중인 충돌 컨테이너 감지 및 중지
+    stopped_containers = get_running_containers(CONFLICTING_CONTAINERS)
+    if stopped_containers:
+        print(f"\n  DB 충돌 방지를 위해 {len(stopped_containers)}개 컨테이너를 중지합니다.")
+        stop_containers(stopped_containers)
+    else:
+        print("\n  No conflicting containers running.")
+
     generator = HistoricalDataGenerator(session, year=2025)
 
     try:
@@ -803,6 +882,9 @@ def main():
         raise
     finally:
         session.close()
+        # 중지했던 컨테이너 재시작 (에러/중단 시에도 반드시 실행)
+        if stopped_containers:
+            start_containers(stopped_containers)
 
 
 if __name__ == "__main__":

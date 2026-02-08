@@ -130,8 +130,8 @@
       "price_min": 500000,
       "price_max": 5000000,
       "order_frequency": 2,
-      "quantity_options": [1],
-      "quantity_weights": [100],
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [60, 20, 10, 10],
       "templates": ["{brand} {year}년형 {adj} {noun} ({model}) {suffix}","[웨딩혼수] {brand} {adj} {noun} 패키지",
         "{brand} {spec} {noun} + 사은품"
       ],
@@ -241,8 +241,8 @@
       "price_min": 300000,
       "price_max": 3000000,
       "order_frequency": 2,
-      "quantity_options": [1],
-      "quantity_weights": [100],
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [60, 20, 10, 10],
       "templates": ["{brand} {material} {noun} {size} {suffix}","[오늘의집] {brand} {adj} {noun} + 스툴포함",
         "{brand} {adj} {noun} 풀세트"
       ],

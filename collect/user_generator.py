@@ -69,6 +69,7 @@ class UserGenerator:
             "last_login_at": last_login_at.isoformat(),
             "status": status,
             "marketing_agree": random.choice(["true", "false"]),
+            "last_ordered_at": None,
             "random_seed": random.random(),
             "created_datetime": datetime.now(),
             "updated_datetime": datetime.now()

@@ -715,19 +715,12 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT \n  user_age_group as \"연령대\",\n  payment_method as \"결제수단\",\n  SUM(count) as \"건수\"\nFROM realtime_age_payment_stats\nWHERE window_start >= $__timeFrom()\nGROUP BY user_age_group, payment_method\nORDER BY \n  CASE user_age_group \n    WHEN '10대' THEN 1 WHEN '20대' THEN 2 WHEN '30대' THEN 3 \n    WHEN '40대' THEN 4 WHEN '50대' THEN 5 WHEN '60대 이상' THEN 6 \n    ELSE 7 END;",
+                    "rawSql": "SELECT \n  user_age_group as \"연령대\",\n  SUM(CASE WHEN payment_method = 'Card' THEN count ELSE 0 END) as \"Card\",\n  SUM(CASE WHEN payment_method = 'NaverPay' THEN count ELSE 0 END) as \"NaverPay\",\n  SUM(CASE WHEN payment_method = 'KakaoPay' THEN count ELSE 0 END) as \"KakaoPay\",\n  SUM(CASE WHEN payment_method = 'Bank' THEN count ELSE 0 END) as \"Bank\"\nFROM realtime_age_payment_stats\nWHERE window_start >= NOW() - INTERVAL '2 hours'\nGROUP BY user_age_group\nORDER BY \n  CASE user_age_group \n    WHEN '10대' THEN 1 WHEN '20대' THEN 2 WHEN '30대' THEN 3 \n    WHEN '40대' THEN 4 WHEN '50대' THEN 5 WHEN '60대 이상' THEN 6 \n    ELSE 7 END;",
                     "refId": "A"
                 }
             ],
             "title": "📊 연령대별 결제수단 선호도",
-            "transformations": [
-                {
-                    "id": "prepareTimeSeries",
-                    "options": {
-                        "format": "multi"
-                    }
-                }
-            ],
+            "transformations": [],
             "type": "barchart"
         },
         {
@@ -1010,19 +1003,12 @@
                     "editorMode": "code",
                     "format": "table",
                     "rawQuery": true,
-                    "rawSql": "SELECT \n  '오늘' as \"기간\",\n  '주문수' as \"항목\",\n  COUNT(*)::numeric as \"값\"\nFROM orders\nWHERE created_at >= CURRENT_DATE\nUNION ALL\nSELECT \n  '어제' as \"기간\",\n  '주문수' as \"항목\",\n  COUNT(*)::numeric as \"값\"\nFROM orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '1 day' \n  AND created_at < CURRENT_DATE\nUNION ALL\nSELECT \n  '오늘' as \"기간\",\n  '유저수' as \"항목\",\n  COUNT(DISTINCT user_id)::numeric as \"값\"\nFROM orders\nWHERE created_at >= CURRENT_DATE\nUNION ALL\nSELECT \n  '어제' as \"기간\",\n  '유저수' as \"항목\",\n  COUNT(DISTINCT user_id)::numeric as \"값\"\nFROM orders\nWHERE created_at >= CURRENT_DATE - INTERVAL '1 day' \n  AND created_at < CURRENT_DATE;",
+                    "rawSql": "SELECT \n  '주문수' as \"항목\",\n  (SELECT COUNT(*)::numeric FROM orders WHERE created_at >= CURRENT_DATE) as \"오늘\",\n  (SELECT COUNT(*)::numeric FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE) as \"어제\"\nUNION ALL\nSELECT \n  '유저수' as \"항목\",\n  (SELECT COUNT(DISTINCT user_id)::numeric FROM orders WHERE created_at >= CURRENT_DATE) as \"오늘\",\n  (SELECT COUNT(DISTINCT user_id)::numeric FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE) as \"어제\";",
                     "refId": "A"
                 }
             ],
             "title": "📅 오늘 vs 어제 KPI 비교",
-            "transformations": [
-                {
-                    "id": "prepareTimeSeries",
-                    "options": {
-                        "format": "multi"
-                    }
-                }
-            ],
+            "transformations": [],
             "type": "barchart"
         },
         {
