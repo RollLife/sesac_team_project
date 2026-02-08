@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 fake = Faker('ko_KR')
 
-GRADES = ["BRONZE", "SILVER", "GOLD", "VIP"]
-GRADE_WEIGHTS = [60, 25, 10, 5]
+# 모든 신규 고객은 BRONZE에서 시작 (등급은 배치 작업으로 갱신)
+DEFAULT_GRADE = "BRONZE"
 
 # 실제 대한민국 인구 분포와 유사한 가중치 적용 (경기/서울 집중)
 CITIES = ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "경기", "강원", "충청", "전라", "경상", "제주"]
@@ -36,7 +36,7 @@ class UserGenerator:
         address_detail = fake.street_address()
         full_address = f"{city} {address_detail}"
         
-        grade = random.choices(GRADES, weights=GRADE_WEIGHTS, k=1)[0]
+        grade = DEFAULT_GRADE
         
         # 리얼한 이메일 생성
         email_id = fake.user_name()
@@ -62,13 +62,14 @@ class UserGenerator:
             "age": age,
             "birth_year": birth_year,
             "address": full_address,
-            "address_district": city, 
+            "address_district": city,
             "grade": grade,
             "email": email,
             "created_at": created_at.isoformat(),
-            "last_login_at": last_login_at.isoformat(), # 이탈률 분석용
-            "status": status, # 활성/휴면 상태
-            "marketing_agree": random.choice([True, False]), # 마케팅 타겟팅용
+            "last_login_at": last_login_at.isoformat(),
+            "status": status,
+            "marketing_agree": random.choice(["true", "false"]),
+            "random_seed": random.random(),
             "created_datetime": datetime.now(),
             "updated_datetime": datetime.now()
         }

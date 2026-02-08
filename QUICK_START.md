@@ -5,32 +5,41 @@
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ PostgreSQL  │────▶│Cache-Worker │────▶│    Redis    │
-│  (원본 DB)  │     │(Aging 50초) │     │ (1000건)    │
+│  (원본 DB)  │     │(분리적재50초)│     │ (1000건)    │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
       ┌────────────────────────────────────────┘
       ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Producer   │────▶│   Kafka     │────▶│  Consumers  │
-│(Redis조회)  │     │ (3 brokers) │     │(9 instances)│
+│(성향기반선택)│     │ (3 brokers) │     │(9 instances)│
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
-                                               ▼
-                                        ┌─────────────┐
-                                        │ PostgreSQL  │
-                                        │   (저장)    │
+┌─────────────┐                                ▼
+│Grade Updater│                         ┌─────────────┐
+│ (10분 배치) │                         │ PostgreSQL  │
+└─────────────┘                         │   (저장)    │
                                         └─────────────┘
 ```
 
 ### 데이터 흐름
-1. **Cache-Worker** → DB에서 Aging 기법으로 1,000건씩 Redis로 캐싱 (50초마다)
-2. **Producer** → Redis 캐시에서 랜덤 조회 → Kafka 발행 (DB 저장 X)
+1. **Cache-Worker** → DB에서 구매이력/미구매 분리 적재로 1,000건씩 Redis로 캐싱 (50초마다)
+2. **Producer** → Redis 캐시에서 구매 성향 상위 200명 선택 → Kafka 발행 (DB 저장 X)
 3. **Consumers** → Kafka에서 소비 → PostgreSQL에 저장
+4. **Grade Updater** → 10분마다 6개월 누적 기준 등급 갱신
 
-### Redis 캐싱 + Aging 기법
-- **Aging 기법**: 50% 신규 데이터 + 50% 기존 데이터 (기아 방지)
+### Redis 캐싱 - 구매이력/미구매 분리 적재
+- **고객**: 구매이력 600명 (last_ordered_at ASC) + 미구매 400명 (created_at DESC)
+- **상품**: 인기상품 700개 (order_count DESC) + 신상품 300개 (created_at DESC)
 - **성능 향상**: DB 쿼리 98% 감소, 조회 속도 100배 향상
 - **Consumer 그룹**: users_group(3), products_group(3), orders_group(3)
+
+### 데이터 생성 주기
+| 데이터 | 간격 | 수량 |
+|--------|------|------|
+| 주문 | 3~5초 | 1건 (성향 기반 선택) |
+| 상품 | 6~8초 | 1개 |
+| 고객 | S커브 감쇄 (초기 10명/10초 → 점진적 감소) | 가변 |
 
 ## 전체 시스템 시작
 
@@ -89,6 +98,16 @@ docker logs -f redis_monitor
 docker logs -f cache_worker
 ```
 
+### 등급 갱신 확인
+```bash
+# Grade Updater 로그 확인
+docker logs -f grade_updater
+
+# DB에서 등급 분포 확인
+docker exec local_postgres psql -U postgres -d sesac_db -c "
+  SELECT grade, COUNT(*) FROM users GROUP BY grade ORDER BY COUNT(*) DESC;"
+```
+
 ### Kafka
 ```bash
 # 토픽 목록 확인
@@ -116,6 +135,15 @@ docker-compose exec postgres psql -U postgres -d sesac_db
 SELECT COUNT(*) FROM users;
 SELECT COUNT(*) FROM products;
 SELECT COUNT(*) FROM orders;
+
+# 등급별 분포
+SELECT grade, COUNT(*) FROM users GROUP BY grade ORDER BY COUNT(*) DESC;
+
+# 구매이력/미구매 고객 수
+SELECT
+  COUNT(*) FILTER (WHERE last_ordered_at IS NOT NULL) as purchased,
+  COUNT(*) FILTER (WHERE last_ordered_at IS NULL) as new_users
+FROM users;
 ```
 
 ## 모니터링
@@ -163,7 +191,6 @@ docker logs --tail 50 user_consumer_1
 # docker-compose.yml의 cache-worker 환경변수
 CACHE_REFRESH_INTERVAL: 50     # 캐시 갱신 주기 (초)
 CACHE_BATCH_SIZE: 1000         # 캐시 배치 크기
-CACHE_NEW_DATA_RATIO: 0.5      # 신규 데이터 비율 (Aging)
 ```
 
 ### 운영 DB로 전환
@@ -174,6 +201,18 @@ POSTGRES_HOST=prod-db.example.com
 POSTGRES_PASSWORD=secure_password
 ```
 
+## 과거 데이터 생성
+
+```bash
+# 1년치 과거 주문 데이터 생성 (Grafana 분석용)
+python scripts/generate_historical_data.py
+```
+
+- 첫 7일: random_seed 기반 랜덤 풀
+- 이후: 구매이력 600 + 미구매 400 분리 풀
+- 7일마다 등급 갱신 (6개월 누적 기준)
+- 구매 성향 기반 고객 선택
+
 ## 문제 해결
 
 ### 컨테이너 재시작
@@ -181,6 +220,7 @@ POSTGRES_PASSWORD=secure_password
 # 특정 서비스만
 docker-compose restart producer
 docker-compose restart cache-worker
+docker-compose restart grade-updater
 
 # 전체 재시작
 docker-compose restart
@@ -217,12 +257,16 @@ docker-compose up -d
 ```
 .
 ├── deploy/                 # Docker 관련 파일
-│   ├── docker-compose.yml  # 서비스 정의 (20개 컨테이너)
+│   ├── docker-compose.yml  # 서비스 정의 (21개 컨테이너)
 │   ├── Dockerfile          # Python 이미지
 │   └── requirements.txt    # Python 의존성
 ├── apps/                   # 애플리케이션
+│   ├── batch/              # 배치 작업
+│   │   └── grade_updater.py  # 등급 갱신 (10분 배치)
 │   ├── benchmarks/         # 벤치마크 스크립트
 │   └── seeders/            # 데이터 생성
+│       ├── realtime_generator.py      # 주문/상품 생성 (성향 기반)
+│       └── realtime_generator_user.py # 고객 생성 (S커브 감쇄)
 ├── kafka/                  # Kafka 관련 코드
 │   ├── producer.py         # Kafka Producer
 │   ├── consumers/          # Consumers
@@ -230,48 +274,25 @@ docker-compose up -d
 ├── cache/                  # Redis 캐시 모듈
 │   ├── client.py           # Redis 클라이언트
 │   ├── config.py           # 캐시 설정
-│   ├── cache_worker.py     # Aging 기법 캐시 워커
+│   ├── cache_worker.py     # 분리 적재 캐시 워커
 │   └── redis_monitor.py    # 실시간 모니터링
 ├── database/               # 데이터베이스
 │   ├── models.py           # SQLAlchemy 모델
 │   └── crud.py             # CRUD 함수
 ├── collect/                # 데이터 생성기
-│   ├── user_generator.py
-│   ├── product_generator.py
-│   ├── order_generator.py
-│   └── scenario_engine.py    # 20가지 시나리오 정의
+│   ├── user_generator.py        # 고객 생성 (전원 BRONZE)
+│   ├── product_generator.py     # 상품 생성
+│   ├── order_generator.py       # 주문 생성
+│   ├── purchase_propensity.py   # 구매 성향 점수 시스템
+│   └── scenario_engine.py       # 20가지 시나리오 정의
 └── scripts/                # 유틸리티 스크립트
     └── generate_historical_data.py  # 과거 1년치 데이터 생성
 ```
 
-## Grafana 분석용 과거 데이터 생성
-
-1년치 과거 주문 데이터를 생성하여 분석 대시보드용 데이터를 준비합니다.
-
-### 실행 방법
-
-```bash
-# 프로젝트 루트에서 실행
-python scripts/generate_historical_data.py
-```
-
-### 생성 내용
-| 항목 | 내용 |
-|------|------|
-| 기간 | 2025년 1월 ~ 12월 |
-| 주문 수 | 약 50,000건 |
-| 성장 패턴 | 월 3,000건 → 6,000건 |
-| 시나리오 | 20가지 이벤트 (설날, 블프, 여름 등) |
-
-### 전제 조건
-- `initial_seeder.py` 실행 완료 (유저 1만명, 상품 2만개)
-- PostgreSQL 컨테이너 실행 중
-
-자세한 내용: [GUIDE/HISTORICAL_DATA_GUIDE.md](GUIDE/HISTORICAL_DATA_GUIDE.md)
-
 ## 참고 문서
 
+- [GUIDE/DB_README.md](GUIDE/DB_README.md) - DB 구조 및 캐시 적재 가이드
 - [GUIDE/DOCKER_DEPLOYMENT_GUIDE.md](GUIDE/DOCKER_DEPLOYMENT_GUIDE.md) - Docker 배포 가이드 (상세)
 - [GUIDE/KAFKA_SETUP_GUIDE.md](GUIDE/KAFKA_SETUP_GUIDE.md) - Kafka 설정 가이드
 - [GUIDE/HISTORICAL_DATA_GUIDE.md](GUIDE/HISTORICAL_DATA_GUIDE.md) - 과거 데이터 생성 가이드
-- [deploy/PYTHON_DEV_GUIDE.md](deploy/PYTHON_DEV_GUIDE.md) - 개발 컨테이너 사용법
+- [GUIDE/PYTHON_DEV_GUIDE.md](GUIDE/PYTHON_DEV_GUIDE.md) - 개발 컨테이너 사용법

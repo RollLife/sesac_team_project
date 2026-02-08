@@ -4,10 +4,10 @@
 
 Kafka Producer는 **Redis 캐시에서 데이터를 조회**하여 주문 데이터를 생성하고, Kafka 토픽으로 이벤트를 발행합니다. (DB 저장은 Consumer가 담당)
 
-### 아키텍처 (Redis 캐싱 + Aging)
+### 아키텍처 (Redis 캐싱 + 분리적재)
 ```
 [PostgreSQL] → [Cache-Worker] → [Redis] → [Producer] → [Kafka] → [Consumer] → [DB]
-                 (50초마다)     (1000건)   (랜덤조회)
+                 (분리적재50초)  (1000건)   (성향기반선택)
 ```
 
 ### 성능 향상
@@ -26,17 +26,17 @@ Kafka Producer는 **Redis 캐시에서 데이터를 조회**하여 주문 데이
 
 ### 2. 실시간 데이터 생성 (Redis 캐시 모드)
 **apps/seeders/realtime_generator.py**
-- **Redis 캐시에서 유저/상품 랜덤 조회**
-- 주문: 2~8초 간격으로 1~5건씩 생성
-- 상품: 10~20초 간격으로 100건씩 생성
+- **Redis 캐시에서 구매 성향 상위 200명 선택**
+- 주문: 3~5초 간격으로 1건씩 생성 (구매 성향 기반)
+- 상품: 6~8초 간격으로 1개씩 생성
 - Kafka에만 발행 (DB 저장 X)
 - 무한 루프 (Ctrl+C로 중지)
 
-### 3. Cache Worker (Aging 기법)
+### 3. Cache Worker (구매이력/미구매 분리 적재)
 **cache/cache_worker.py**
 - 50초마다 DB에서 1,000건씩 Redis로 캐싱
-- Aging: 50% 신규 + 50% 기존 데이터 (기아 방지)
-- `last_cached_at` 컬럼으로 조회 이력 관리
+- 고객: 구매이력 600명 (last_ordered_at ASC) + 미구매 400명 (created_at DESC)
+- 상품: 인기 700개 (order_count DESC) + 신상품 300개 (created_at DESC)
 
 ### 4. 데이터 생성기
 - **collect/user_generator.py** - 유저 데이터 생성
@@ -95,13 +95,13 @@ python apps/seeders/realtime_generator.py
 
 ```
 1. Cache-Worker (50초마다)
-   └─ DB에서 Aging 기법으로 조회
-      ├─ 신규 500건 (last_cached_at IS NULL)
-      └─ 기존 500건 (ORDER BY last_cached_at ASC)
+   └─ DB에서 분리 적재로 조회
+      ├─ 고객: 구매이력 600명 (last_ordered_at ASC) + 미구매 400명 (created_at DESC)
+      └─ 상품: 인기 700개 (order_count DESC) + 신상품 300개 (created_at DESC)
    └─ Redis Hash에 저장 (cache:users, cache:products)
 
-2. Producer (2~8초마다)
-   └─ Redis에서 랜덤 조회 (HRANDFIELD)
+2. Producer (3~5초마다)
+   └─ Redis에서 구매 성향 상위 200명 선택
    └─ 주문 데이터 생성
    └─ Kafka 'orders' 토픽에 발행 (DB 저장 X)
 
@@ -133,7 +133,6 @@ environment:
   REDIS_PORT: 6379
   CACHE_REFRESH_INTERVAL: 50     # 캐시 갱신 주기 (초)
   CACHE_BATCH_SIZE: 1000         # 캐시 배치 크기
-  CACHE_NEW_DATA_RATIO: 0.5      # 신규 데이터 비율 (50%)
 ```
 
 ### Kafka 설정 (kafka/config.py)
@@ -338,7 +337,6 @@ docker-compose restart producer
 environment:
   CACHE_REFRESH_INTERVAL: 30   # 더 자주 갱신 (30초)
   CACHE_BATCH_SIZE: 2000       # 더 많이 캐싱 (2000건)
-  CACHE_NEW_DATA_RATIO: 0.7    # 신규 데이터 비율 70%
 ```
 
 ### Kafka Producer 설정
@@ -359,7 +357,7 @@ KAFKA_CONFIG = {
 ## 요약
 
 ### Producer 역할 (Redis 캐시 모드)
-- ✅ Redis 캐시에서 유저/상품 랜덤 조회
+- ✅ Redis 캐시에서 구매 성향 상위 200명 선택
 - ✅ 주문 데이터 생성
 - ✅ Kafka 토픽에 이벤트 발행
 - ❌ DB 직접 저장 (Consumer가 담당)
@@ -367,11 +365,11 @@ KAFKA_CONFIG = {
 ### 데이터 흐름
 ```
 1. Cache-Worker (50초마다)
-   → DB에서 Aging 기법으로 1,000건 조회
+   → DB에서 분리 적재로 1,000건 조회
    → Redis에 캐싱
 
-2. Producer (2~8초마다)
-   → Redis에서 랜덤 조회
+2. Producer (3~5초마다)
+   → Redis에서 구매 성향 상위 200명 선택
    → 주문 생성 → Kafka 발행
 
 3. Consumer
@@ -379,4 +377,4 @@ KAFKA_CONFIG = {
    → PostgreSQL에 저장
 ```
 
-**Redis 캐싱 + Aging 기법으로 대용량 환경에서도 효율적인 데이터 생성!**
+**Redis 캐싱 + 구매이력/미구매 분리 적재로 대용량 환경에서도 효율적인 데이터 생성!**

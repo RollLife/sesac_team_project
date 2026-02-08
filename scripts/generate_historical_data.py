@@ -4,7 +4,13 @@
 - 기간: 2025년 1월 1일 ~ 2025년 12월 31일
 - 목표: 약 50,000건 주문 (소규모 쇼핑몰 성장 시나리오)
 - 성장 패턴: 월 ~3,000건 → ~6,000건 점진적 성장
-- 기존 시스템 정합성 유지 (models.py, scenario_engine.py, generators)
+
+변경사항:
+- 첫 1주: 전체 유저 중 랜덤 1000명 풀
+- 이후: 구매이력 600명 + 미구매 400명 분리 적재
+- 구매 성향 기반 고객 선택 (demographics + 변동 요인)
+- 주간 등급 갱신 (6개월 누적 기준)
+- last_ordered_at / order_count 실시간 추적
 
 ※ 유저/상품은 initial_seeder.py로 생성된 기존 데이터(유저 1만명, 상품 2만개) 사용
 """
@@ -12,9 +18,8 @@
 import os
 import sys
 import random
-import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from collections import defaultdict
 
 # 프로젝트 루트 경로 추가
@@ -29,19 +34,18 @@ os.environ["POSTGRES_USER"] = "postgres"
 os.environ["POSTGRES_PASSWORD"] = "password"
 os.environ["POSTGRES_DB"] = "sesac_db"
 
-from faker import Faker
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # 프로젝트 모듈 임포트 (환경변수 설정 후)
-from database.models import Base, User, Product, Order
+from database.models import Order
 from collect.scenario_engine import (
-    SCENARIOS, BASELINE_CONFIG, AVAILABLE_CATEGORIES,
-    HOURLY_MULTIPLIER, _cat_weights
+    SCENARIOS, BASELINE_CONFIG,
+    HOURLY_MULTIPLIER,
 )
 from collect.order_generator import OrderGenerator
-
-fake = Faker('ko_KR')
+from collect.purchase_propensity import calculate_propensity
+from apps.batch.grade_updater import update_all_grades
 
 # ============================================================
 # 월별/주별 이벤트 계획표
@@ -153,7 +157,7 @@ MONTHLY_EVENT_PLAN = {
         "weeks": {
             1: {"scenario": 6, "desc": "겨울 패딩", "weight": 1.1},
             2: {"scenario": 18, "desc": "가전 할인", "weight": 1.3},
-            3: {"scenario": 3, "desc": "블랙프라이데이", "weight": 2.0},  # 대폭 증가
+            3: {"scenario": 3, "desc": "블랙프라이데이", "weight": 2.0},
             4: {"scenario": 3, "desc": "블랙프라이데이", "weight": 1.8},
         }
     },
@@ -219,87 +223,230 @@ def get_age_group(age: int) -> str:
 # ============================================================
 
 class HistoricalDataGenerator:
-    """1년치 과거 데이터 생성기 (기존 유저/상품 활용)"""
+    """1년치 과거 데이터 생성기 (구매이력/미구매 분리 적재 + 성향 기반)"""
+
+    # 캐시 풀 설정
+    USER_PURCHASED_LIMIT = 600
+    USER_NEW_LIMIT = 400
+    PRODUCT_POPULAR_LIMIT = 700
+    PRODUCT_NEW_LIMIT = 300
+    POOL_SIZE = 1000
+
+    # 구매 성향 상위 N명
+    TOP_N_BUYERS = 200
+
+    # 첫 주 랜덤 기간 (일)
+    RANDOM_PHASE_DAYS = 7
+
+    # 등급 갱신 주기 (일)
+    GRADE_UPDATE_INTERVAL_DAYS = 7
 
     def __init__(self, session, year: int = 2025):
         self.session = session
         self.year = year
         self.order_gen = OrderGenerator()
 
-        # DB에서 로드할 캐시
-        self.users_cache: List[Dict] = []
-        self.products_cache: List[Dict] = []
+        # 전체 유저/상품 (DB에서 로드)
+        self.all_users: List[Dict] = []
+        self.all_products: List[Dict] = []
+
+        # 인메모리 추적 (주문 발생 시 업데이트)
+        self.user_last_ordered: Dict[str, datetime] = {}  # user_id -> last order datetime
+        self.product_order_counts: Dict[str, int] = {}    # product_id -> count
 
         # 통계
         self.stats = defaultdict(int)
+        self.start_date = datetime(year, 1, 1)
 
     def load_existing_data(self):
-        """DB에서 기존 유저/상품 데이터 로드 (생성시간 순서로)"""
+        """DB에서 기존 유저/상품 데이터 로드 (구매 성향 계산에 필요한 필드 포함)"""
         print("\n" + "=" * 60)
         print("Loading existing users and products from DB...")
         print("=" * 60)
 
-        # 유저 로드 (생성시간 순서로 가장 먼저 생성된 1만명)
-        print("  Loading users (oldest 10,000 by created_at)...")
+        # 유저 로드 (성향 계산에 필요한 필드 포함)
+        print("  Loading users...")
         result = self.session.execute(text("""
-            SELECT user_id, name, gender, age, address_district
+            SELECT user_id, name, gender, age, address_district,
+                   status, marketing_agree, grade, random_seed, created_at
             FROM users
             ORDER BY created_at ASC
             LIMIT 10000
         """))
 
         for row in result:
-            self.users_cache.append({
+            user = {
                 'user_id': row[0],
                 'name': row[1],
                 'gender': row[2],
                 'age': row[3],
                 'address_district': row[4],
-            })
+                'status': row[5] or 'ACTIVE',
+                'marketing_agree': row[6] or 'false',
+                'grade': row[7] or 'BRONZE',
+                'random_seed': row[8] or random.random(),
+                'created_at': row[9],
+            }
+            self.all_users.append(user)
+            # product_order_counts 초기화
+            self.product_order_counts[user['user_id']] = 0
 
-        print(f"    Loaded {len(self.users_cache):,} users")
+        print(f"    Loaded {len(self.all_users):,} users")
 
-        # 상품 로드 (생성시간 순서로 가장 먼저 생성된 2만개)
-        print("  Loading products (oldest 20,000 by created_at)...")
+        # 상품 로드
+        print("  Loading products...")
         result = self.session.execute(text("""
-            SELECT product_id, name, category, price, brand
+            SELECT product_id, name, category, price, brand, created_at
             FROM products
             ORDER BY created_at ASC
             LIMIT 20000
         """))
 
         for row in result:
-            self.products_cache.append({
+            product = {
                 'product_id': row[0],
                 'name': row[1],
                 'category': row[2],
                 'price': row[3],
                 'brand': row[4],
-            })
+                'created_at': row[5],
+            }
+            self.all_products.append(product)
+            self.product_order_counts[product['product_id']] = 0
 
-        print(f"    Loaded {len(self.products_cache):,} products")
+        print(f"    Loaded {len(self.all_products):,} products")
         print("=" * 60)
 
-        if len(self.users_cache) == 0 or len(self.products_cache) == 0:
+        if not self.all_users or not self.all_products:
             raise ValueError(
                 "DB에 유저 또는 상품 데이터가 없습니다.\n"
                 "먼저 initial_seeder.py를 실행하여 데이터를 생성하세요."
             )
+
+    # ========================================
+    # 풀 선택 (600+400 / 700+300 분리 적재)
+    # ========================================
+
+    def get_user_pool(self, current_date: datetime) -> List[Dict]:
+        """
+        현재 날짜 기준 유저 풀 선택
+        - 첫 1주: 전체 유저 중 랜덤 1000명
+        - 이후: 구매이력 600명(last_ordered_at ASC) + 미구매 400명(created_at DESC)
+        """
+        days_elapsed = (current_date - self.start_date).days
+
+        if days_elapsed < self.RANDOM_PHASE_DAYS:
+            # 첫 1주: 랜덤 선택 (random_seed 기반 정렬)
+            sorted_users = sorted(self.all_users, key=lambda u: u.get('random_seed', 0))
+            # random_seed 기준으로 정렬 후 상위 1000명 선택
+            return sorted_users[:self.POOL_SIZE]
+
+        # 이후: 구매이력/미구매 분리 적재
+        purchased = [u for u in self.all_users if u['user_id'] in self.user_last_ordered]
+        new_users = [u for u in self.all_users if u['user_id'] not in self.user_last_ordered]
+
+        # 구매이력 고객: last_ordered_at 오래된 순 (재구매 기회 제공)
+        purchased.sort(key=lambda u: self.user_last_ordered.get(u['user_id'], datetime.min))
+
+        # 미구매 고객: created_at 최신순
+        new_users.sort(key=lambda u: u.get('created_at') or datetime.min, reverse=True)
+
+        # 미구매 부족 시 구매이력 풀 확대
+        new_count = min(self.USER_NEW_LIMIT, len(new_users))
+        purchased_count = self.POOL_SIZE - new_count
+
+        pool = purchased[:purchased_count] + new_users[:new_count]
+        return pool
+
+    def get_product_pool(self) -> List[Dict]:
+        """
+        상품 풀 선택: 인기 700개(order_count DESC) + 신상품 300개(order_count==0, created_at DESC)
+        """
+        has_orders = [p for p in self.all_products
+                      if self.product_order_counts.get(p['product_id'], 0) > 0]
+        no_orders = [p for p in self.all_products
+                     if self.product_order_counts.get(p['product_id'], 0) == 0]
+
+        # 인기상품: order_count 높은 순
+        has_orders.sort(
+            key=lambda p: self.product_order_counts.get(p['product_id'], 0),
+            reverse=True
+        )
+        # 신상품: created_at 최신순
+        no_orders.sort(key=lambda p: p.get('created_at') or datetime.min, reverse=True)
+
+        new_count = min(self.PRODUCT_NEW_LIMIT, len(no_orders))
+        popular_count = self.POOL_SIZE - new_count
+
+        pool = has_orders[:popular_count] + no_orders[:new_count]
+        return pool
+
+    # ========================================
+    # 구매 성향 기반 선택
+    # ========================================
+
+    def select_buyer_by_propensity(
+        self,
+        user_pool: List[Dict],
+        config: Dict[str, Any],
+        hour: int,
+    ) -> Dict:
+        """구매 성향 + 시나리오 가중치로 유저 선택"""
+        if not user_pool:
+            return None
+
+        # 구매 성향 점수 계산
+        scored = []
+        for user in user_pool:
+            propensity = calculate_propensity(user, hour)
+
+            # 시나리오 가중치도 반영
+            gender_w = config.get("gender_weights", {"M": 50, "F": 50})
+            age_w = config.get("age_group_weights", {})
+            g_score = gender_w.get(user.get("gender", "M"), 50) / 50
+            a_score = age_w.get(get_age_group(user.get("age")), 20) / 20
+
+            final_score = propensity * g_score * a_score
+            scored.append((user, max(0.1, final_score)))
+
+        users, scores = zip(*scored)
+        return random.choices(users, weights=scores, k=1)[0]
+
+    def select_product_by_scenario(self, product_pool: List[Dict], config: Dict[str, Any]) -> Dict:
+        """시나리오 가중치 + 카테고리 빈도에 맞는 상품 선택"""
+        if not product_pool:
+            return None
+
+        scenario_weights = config.get('category_weights', {})
+
+        scored = []
+        for product in product_pool:
+            category = product.get('category', '')
+
+            scenario_score = scenario_weights.get(category, 5.0)
+
+            if category in self.order_gen.category_rules:
+                frequency_score = self.order_gen.category_rules[category]['order_frequency']
+            else:
+                frequency_score = 10
+
+            total_score = scenario_score * (frequency_score / 10)
+            scored.append((product, max(0.1, total_score)))
+
+        products, scores = zip(*scored)
+        return random.choices(products, weights=scores, k=1)[0]
+
+    # ========================================
+    # 주문 생성 및 추적
+    # ========================================
 
     def generate_order_for_datetime(
         self,
         user: Dict,
         product: Dict,
         order_datetime: datetime,
-        _config: Dict[str, Any]  # 시나리오 config (현재 미사용, 호환성 유지)
     ) -> Dict:
-        """특정 시간에 맞는 주문 데이터 생성 (시나리오 적용)
-
-        Note: 수량은 order_generator.py의 카테고리 기반 규칙을 사용합니다.
-              (product_rules.json의 quantity_options/quantity_weights)
-        """
-
-        # 기본 주문 생성 (카테고리 기반 수량이 이미 적용됨)
+        """특정 시간에 맞는 주문 데이터 생성"""
         order_data = self.order_gen.generate_order(user, product)
 
         # 시간 조정
@@ -311,75 +458,55 @@ class HistoricalDataGenerator:
         order_data['user_gender'] = user.get('gender', '')
         order_data['user_age_group'] = get_age_group(user.get('age'))
 
-        # 수량은 order_generator에서 카테고리 기반으로 이미 결정됨
-        # (생활가전: 1개, 세제/위생: 1~6개 등)
-
         return order_data
 
-    def select_user_by_scenario(self, config: Dict[str, Any]) -> Dict:
-        """시나리오 가중치에 맞는 유저 선택"""
-        if not self.users_cache:
-            return None
+    def track_order(self, order_data: Dict, order_datetime: datetime):
+        """주문 발생 시 인메모리 추적 데이터 업데이트"""
+        user_id = order_data['user_id']
+        product_id = order_data['product_id']
 
-        gender_weights = config.get('gender_weights', {'M': 50, 'F': 50})
-        age_weights = config.get('age_group_weights', {
-            "10대": 10, "20대": 25, "30대": 25, "40대": 25, "50대이상": 15
-        })
+        # user last_ordered_at 갱신
+        prev = self.user_last_ordered.get(user_id)
+        if prev is None or order_datetime > prev:
+            self.user_last_ordered[user_id] = order_datetime
 
-        # 복합 가중치 계산
-        scored_users = []
-        for user in self.users_cache:
-            gender = user.get('gender', 'M')
-            age_group = get_age_group(user.get('age'))
+        # product order_count 증가
+        self.product_order_counts[product_id] = \
+            self.product_order_counts.get(product_id, 0) + 1
 
-            gender_score = gender_weights.get(gender, 50)
-            age_score = age_weights.get(age_group, 10)
+    def update_grades_in_memory(self, reference_date: datetime):
+        """DB에 이미 저장된 주문 데이터로 등급 갱신 후 인메모리 동기화"""
+        # DB에 이미 저장된 데이터로 갱신
+        stats = update_all_grades(self.session, reference_date)
 
-            total_score = (gender_score / 100) * (age_score / 100) * 100
-            scored_users.append((user, max(0.1, total_score)))  # 최소값 보장
+        # 인메모리 유저 딕셔너리의 grade도 동기화
+        grade_map = {}
+        result = self.session.execute(text("SELECT user_id, grade FROM users"))
+        for row in result:
+            grade_map[row[0]] = row[1]
 
-        users, scores = zip(*scored_users)
-        return random.choices(users, weights=scores, k=1)[0]
+        for user in self.all_users:
+            if user['user_id'] in grade_map:
+                user['grade'] = grade_map[user['user_id']]
 
-    def select_product_by_scenario(self, config: Dict[str, Any]) -> Dict:
-        """시나리오 가중치에 맞는 상품 선택
+        return stats
 
-        시나리오의 category_weights와 product_rules.json의 order_frequency를
-        함께 반영하여 상품을 선택합니다.
-        """
-        if not self.products_cache:
-            return None
-
-        scenario_weights = config.get('category_weights', {})
-
-        scored_products = []
-        for product in self.products_cache:
-            category = product.get('category', '')
-
-            # 1) 시나리오 가중치 (이벤트/시즌별 카테고리 부스트)
-            scenario_score = scenario_weights.get(category, 5.0)
-
-            # 2) 기본 주문 빈도 (product_rules.json의 order_frequency)
-            if category in self.order_gen.category_rules:
-                frequency_score = self.order_gen.category_rules[category]['order_frequency']
-            else:
-                frequency_score = 10  # 기본값
-
-            # 두 가중치를 곱하여 최종 점수 계산
-            total_score = scenario_score * (frequency_score / 10)
-            scored_products.append((product, max(0.1, total_score)))
-
-        products, scores = zip(*scored_products)
-        return random.choices(products, weights=scores, k=1)[0]
+    # ========================================
+    # 일별/월별 생성
+    # ========================================
 
     def generate_orders_for_day(
         self,
         target_date: datetime,
         order_count: int,
-        config: Dict[str, Any]
+        config: Dict[str, Any],
     ) -> List[Dict]:
-        """하루치 주문 데이터 생성 (시간대별 분포 적용)"""
+        """하루치 주문 데이터 생성 (시간대별 분포 + 성향 기반 선택)"""
         orders = []
+
+        # 유저/상품 풀 가져오기
+        user_pool = self.get_user_pool(target_date)
+        product_pool = self.get_product_pool()
 
         # 시간대별 주문 분배
         hourly_counts = {}
@@ -391,7 +518,6 @@ class HistoricalDataGenerator:
         # 반올림 오차 보정
         diff = order_count - sum(hourly_counts.values())
         if diff > 0:
-            # 피크 시간대에 추가
             for hour in [20, 19, 18, 21]:
                 if diff <= 0:
                     break
@@ -401,18 +527,20 @@ class HistoricalDataGenerator:
         # 시간대별 주문 생성
         for hour, count in hourly_counts.items():
             for _ in range(count):
-                # 분, 초 랜덤
                 minute = random.randint(0, 59)
                 second = random.randint(0, 59)
                 order_datetime = target_date.replace(hour=hour, minute=minute, second=second)
 
-                # 유저/상품 선택 (시나리오 가중치 적용)
-                user = self.select_user_by_scenario(config)
-                product = self.select_product_by_scenario(config)
+                # 구매 성향 기반 유저 선택
+                user = self.select_buyer_by_propensity(user_pool, config, hour)
+                product = self.select_product_by_scenario(product_pool, config)
 
                 if user and product:
-                    order = self.generate_order_for_datetime(user, product, order_datetime, config)
+                    order = self.generate_order_for_datetime(user, product, order_datetime)
                     orders.append(order)
+
+                    # 인메모리 추적 업데이트
+                    self.track_order(order, order_datetime)
 
         return orders
 
@@ -447,8 +575,34 @@ class HistoricalDataGenerator:
         self.session.commit()
         return saved
 
+    def flush_tracking_to_db(self):
+        """인메모리 추적 데이터를 DB에 반영 (last_ordered_at, order_count)"""
+        print("\n  Flushing tracking data to DB...")
+
+        # 유저 last_ordered_at 갱신
+        updated_users = 0
+        for user_id, last_ordered in self.user_last_ordered.items():
+            self.session.execute(
+                text("UPDATE users SET last_ordered_at = :dt WHERE user_id = :uid"),
+                {"dt": last_ordered, "uid": user_id}
+            )
+            updated_users += 1
+
+        # 상품 order_count 갱신
+        updated_products = 0
+        for product_id, count in self.product_order_counts.items():
+            if count > 0 and not product_id.startswith('U_'):  # user_id 제외
+                self.session.execute(
+                    text("UPDATE products SET order_count = :cnt WHERE product_id = :pid"),
+                    {"cnt": count, "pid": product_id}
+                )
+                updated_products += 1
+
+        self.session.commit()
+        print(f"    Updated {updated_users:,} users, {updated_products:,} products")
+
     def generate_month(self, month: int) -> Dict[str, int]:
-        """한 달치 데이터 생성 (주문만)"""
+        """한 달치 데이터 생성"""
         month_plan = MONTHLY_EVENT_PLAN[month]
         month_name = month_plan['name']
         base_orders = month_plan['base_orders']
@@ -467,9 +621,9 @@ class HistoricalDataGenerator:
 
         total_days = (end_date - start_date).days + 1
 
-        # 일별 주문 생성
         month_orders = 0
         current_date = start_date
+        last_grade_update = None
 
         while current_date <= end_date:
             week_num = get_week_of_month(current_date)
@@ -483,29 +637,45 @@ class HistoricalDataGenerator:
 
             # 요일 가중치 (주말 증가)
             weekday = current_date.weekday()
-            if weekday >= 5:  # 토, 일
+            if weekday >= 5:
                 day_weight = 1.3
-            elif weekday == 4:  # 금
+            elif weekday == 4:
                 day_weight = 1.15
             else:
                 day_weight = 0.95
 
             daily_orders = int(daily_base * weight * day_weight)
 
-            # 시나리오 설정 가져오기
             config = get_scenario_config(scenario_num)
 
             # 주문 생성
             orders = self.generate_orders_for_day(current_date, daily_orders, config)
-
-            # DB 저장
             saved = self.save_orders_to_db(orders)
             month_orders += saved
+
+            # 주간 등급 갱신 (7일마다)
+            days_from_start = (current_date - self.start_date).days
+            if days_from_start > 0 and days_from_start % self.GRADE_UPDATE_INTERVAL_DAYS == 0:
+                if last_grade_update != current_date:
+                    print(f"\n    🔄 등급 갱신 (Day {days_from_start})...")
+                    grade_stats = self.update_grades_in_memory(current_date)
+                    print(f"       승급 {grade_stats['upgraded']}명 | "
+                          f"강등 {grade_stats['downgraded']}명 | "
+                          f"VIP:{grade_stats['grade_counts']['VIP']} "
+                          f"GOLD:{grade_stats['grade_counts']['GOLD']} "
+                          f"SILVER:{grade_stats['grade_counts']['SILVER']} "
+                          f"BRONZE:{grade_stats['grade_counts']['BRONZE']}")
+                    last_grade_update = current_date
 
             # 진행 표시 (매 5일마다)
             if current_date.day % 5 == 0 or current_date.day == 1:
                 scenario_desc = week_plan.get('desc', 'Default')
-                print(f"    {current_date.strftime('%m/%d')} - {saved} orders (Scenario: {scenario_desc})")
+                days_elapsed = (current_date - self.start_date).days
+                phase = "RANDOM" if days_elapsed < self.RANDOM_PHASE_DAYS else "600+400"
+                purchased = len(self.user_last_ordered)
+                print(f"    {current_date.strftime('%m/%d')} - {saved} orders "
+                      f"(Scenario: {scenario_desc}) [{phase}] "
+                      f"구매고객: {purchased:,}명")
 
             current_date += timedelta(days=1)
 
@@ -517,13 +687,13 @@ class HistoricalDataGenerator:
     def run(self):
         """전체 1년치 데이터 생성 실행"""
         print("\n" + "=" * 70)
-        print("Historical Order Data Generator")
+        print("Historical Order Data Generator (구매이력/미구매 분리 적재 + 성향 기반)")
         print(f"  Period: {self.year}-01-01 ~ {self.year}-12-31")
         print(f"  Target: ~50,000 orders")
-        print(f"  Using existing users (10,000) and products (20,000)")
+        print(f"  첫 {self.RANDOM_PHASE_DAYS}일: 랜덤 풀, 이후: 600+400 분리 적재")
+        print(f"  등급 갱신: {self.GRADE_UPDATE_INTERVAL_DAYS}일마다")
         print("=" * 70)
 
-        # 기존 데이터 로드
         self.load_existing_data()
 
         total_orders = 0
@@ -532,12 +702,24 @@ class HistoricalDataGenerator:
             month_stats = self.generate_month(month)
             total_orders += month_stats['orders']
 
-        # 최종 통계 출력
+        # 인메모리 추적 데이터 DB 반영
+        self.flush_tracking_to_db()
+
+        # 최종 등급 갱신
+        print("\n  🔄 최종 등급 갱신...")
+        final_grades = self.update_grades_in_memory(datetime(self.year, 12, 31))
+
+        # 최종 통계
         print("\n" + "=" * 70)
         print("Generation Complete!")
         print("=" * 70)
         print(f"  Total orders: {total_orders:,}")
-        print("\n  Monthly breakdown:")
+        print(f"  구매 고객: {len(self.user_last_ordered):,}명")
+        print(f"\n  최종 등급 분포:")
+        for grade in ["VIP", "GOLD", "SILVER", "BRONZE"]:
+            count = final_grades['grade_counts'][grade]
+            print(f"    {grade:8}: {count:>5,}명")
+        print(f"\n  Monthly breakdown:")
         for month in range(1, 13):
             count = self.stats.get(str(month), 0)
             bar = '#' * (count // 500)
@@ -555,18 +737,16 @@ def main():
     print("=" * 70)
     print("Historical Order Data Generator")
     print("  Generates 1 year of order data using existing users/products")
+    print("  Features: 600+400 split, propensity scoring, weekly grade updates")
     print("=" * 70)
 
-    # DB 연결 확인
     print("\nConnecting to database...")
     try:
-        session, engine = get_db_session()
+        session, _engine = get_db_session()
 
-        # 연결 테스트
-        result = session.execute(text("SELECT 1")).fetchone()
+        session.execute(text("SELECT 1")).fetchone()
         print("  [OK] PostgreSQL connected")
 
-        # 현재 데이터 현황 확인
         user_count = session.execute(text("SELECT COUNT(*) FROM users")).scalar()
         product_count = session.execute(text("SELECT COUNT(*) FROM products")).scalar()
         order_count = session.execute(text("SELECT COUNT(*) FROM orders")).scalar()
@@ -587,7 +767,6 @@ def main():
         print("  docker-compose up -d postgres")
         return
 
-    # 사용자 확인
     print("\n[WARNING] This script will generate ~50,000 orders for 2025.")
     print("  Existing orders will NOT be deleted.")
 
@@ -596,13 +775,11 @@ def main():
         print("Cancelled.")
         return
 
-    # 데이터 생성 실행
     generator = HistoricalDataGenerator(session, year=2025)
 
     try:
         stats = generator.run()
 
-        # 최종 DB 현황
         print("\nFinal DB status:")
         user_count = session.execute(text("SELECT COUNT(*) FROM users")).scalar()
         product_count = session.execute(text("SELECT COUNT(*) FROM products")).scalar()
@@ -611,7 +788,6 @@ def main():
         print(f"  Products: {product_count:,}")
         print(f"  Orders: {order_count:,}")
 
-        # 2025년 데이터 확인
         orders_2025 = session.execute(text("""
             SELECT COUNT(*) FROM orders
             WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'

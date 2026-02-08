@@ -8,6 +8,8 @@
 - 데이터 분석팀의 Grafana 대시보드 분석을 위한 과거 데이터 생성
 - 계절별/시간대별 현실적인 주문 패턴 반영
 - 20가지 시나리오 이벤트를 활용한 유의미한 분석 데이터
+- **구매 성향 기반 고객 선택**으로 현실적인 구매 패턴 생성
+- **등급 자동 갱신**으로 시간에 따른 고객 등급 변화 반영
 
 ### 생성 데이터
 | 항목 | 내용 |
@@ -16,6 +18,59 @@
 | 주문 수 | 약 50,000건 |
 | 성장 패턴 | 월 3,000건 → 6,000건 점진적 성장 |
 | 기반 데이터 | 기존 유저 1만명, 상품 2만개 활용 |
+| 캐시 풀 | 첫 7일 random_seed, 이후 600+400 분리 |
+| 등급 갱신 | 7일마다 6개월 누적 기준 |
+
+## 핵심 기능
+
+### 1. 고객 풀 분리 적재 (실시간 시스템과 동일)
+
+스크립트 실행 시 실시간 캐시 시스템과 동일한 분리 적재 방식을 사용합니다:
+
+```
+첫 7일: random_seed 기반 랜덤 풀 (초기 데이터 부족 시기)
+이후:   구매이력 600명 (last_ordered_at ASC) + 미구매 400명 (created_at DESC)
+```
+
+**상품 풀:**
+```
+인기상품 700개 (order_count DESC) + 신상품 300개 (order_count == 0, created_at DESC)
+```
+
+### 2. 구매 성향 기반 고객 선택
+
+각 주문 생성 시 고객 풀에서 **구매 성향 점수**를 계산하여 선택합니다:
+
+```
+최종 점수 = 기본 점수(나이+성별+상태+마케팅+등급) × 시간대 변동 × 마케팅 부스트 × 생활 이벤트
+```
+
+| 성향 요소 | 설명 |
+|-----------|------|
+| 나이 | 30~40대 높은 점수, 20대/50대 중간 |
+| 성별 | 여성 약간 높은 기본점수 |
+| 활동 상태 | ACTIVE > DORMANT |
+| 마케팅 동의 | 동의 시 20% 확률로 1.3x 부스트 |
+| 등급 | VIP(1.5x) > GOLD(1.3x) > SILVER(1.1x) > BRONZE(1.0x) |
+| 시간대 | 연령별 24시간 가중치 패턴 |
+| 생활 이벤트 | 85% 일반(1.0x), 12% 소비증가(1.5x), 3% 대량구매(3.0x) |
+
+### 3. 등급 자동 갱신 (7일마다)
+
+스크립트 실행 중 7일마다 고객 등급을 갱신합니다:
+
+| 등급 | 6개월 누적 금액 | 주문 횟수 |
+|------|----------------|----------|
+| VIP | 300만원 이상 | 15회 이상 |
+| GOLD | 100만원 이상 | 8회 이상 |
+| SILVER | 30만원 이상 | 3회 이상 |
+| BRONZE | 기본 (조건 미달) | - |
+
+### 4. DB 추적 데이터 반영
+
+스크립트 종료 시 다음 데이터를 DB에 일괄 반영합니다:
+- `users.last_ordered_at`: 마지막 주문 시간 업데이트
+- `products.order_count`: 누적 판매 수 업데이트
 
 ## 실행 순서
 
@@ -48,6 +103,9 @@ python scripts/generate_historical_data.py
 ======================================================================
 Historical Order Data Generator
   Generates 1 year of order data using existing users/products
+  - Purchase propensity based customer selection
+  - Weekly grade updates (6-month cumulative)
+  - 600+400 user pool split (purchased + new)
 ======================================================================
 
 Connecting to database...
@@ -188,6 +246,9 @@ Proceed? (y/N): y
 | 시나리오 | `scenario_engine.py`의 20가지 프리셋 |
 | 주문 생성 | `order_generator.py`의 결제수단/수량 로직 |
 | 역정규화 | category, user_region, user_gender, user_age_group |
+| 캐시 풀 | 실시간 시스템과 동일한 600+400 / 700+300 분리 |
+| 구매 성향 | `purchase_propensity.py`의 성향 점수 시스템 |
+| 등급 갱신 | `grade_updater.py`의 6개월 누적 기준 |
 
 ### 역정규화 필드 자동 채움
 
@@ -196,6 +257,18 @@ order.category = product.category
 order.user_region = user.address_district
 order.user_gender = user.gender
 order.user_age_group = f"{user.age // 10 * 10}대"
+```
+
+### DB 추적 데이터 반영
+
+스크립트 종료 시 다음 데이터가 DB에 일괄 반영됩니다:
+
+```python
+# 유저: 마지막 주문 시간 업데이트
+UPDATE users SET last_ordered_at = ? WHERE user_id = ?
+
+# 상품: 누적 판매 수 업데이트
+UPDATE products SET order_count = ? WHERE product_id = ?
 ```
 
 ## 예상 실행 시간
@@ -219,6 +292,21 @@ FROM orders
 WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'
 GROUP BY 1
 ORDER BY 1;
+
+-- 등급별 고객 분포
+SELECT grade, COUNT(*) FROM users GROUP BY grade ORDER BY COUNT(*) DESC;
+
+-- 구매이력/미구매 분포
+SELECT
+  COUNT(*) FILTER (WHERE last_ordered_at IS NOT NULL) as purchased,
+  COUNT(*) FILTER (WHERE last_ordered_at IS NULL) as new_users
+FROM users;
+
+-- 상품별 누적 판매 수 상위
+SELECT product_id, name, order_count
+FROM products
+ORDER BY order_count DESC
+LIMIT 20;
 ```
 
 ### Grafana 대시보드
@@ -229,6 +317,8 @@ ORDER BY 1;
 - 계절별 카테고리 인기도
 - 연령대별/성별 구매 패턴
 - 시나리오 이벤트 효과 분석
+- **고객 등급별 매출 기여도**
+- **등급 변화 추이 (BRONZE → SILVER → GOLD → VIP)**
 
 ## 문제 해결
 
@@ -268,4 +358,6 @@ WHERE created_at >= '2025-01-01' AND created_at < '2026-01-01';
 | `apps/seeders/initial_seeder.py` | 초기 유저/상품 생성 |
 | `collect/scenario_engine.py` | 20가지 시나리오 정의 |
 | `collect/order_generator.py` | 주문 생성 로직 |
+| `collect/purchase_propensity.py` | 구매 성향 점수 시스템 |
+| `apps/batch/grade_updater.py` | 고객 등급 갱신 |
 | `database/models.py` | 테이블 스키마 |

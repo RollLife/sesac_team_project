@@ -1,13 +1,15 @@
 """
 실시간 고객 데이터 생성 시뮬레이터
 
-- 고객 데이터: 10초 간격으로 10명씩 생성 (무한 루프)
+- S커브 감쇄: 초기에 빠르게 증가하다가 시간이 지날수록 느려짐
+- 전원 BRONZE 등급, random_seed 부여
 - Producer → Broker → Consumer → DB 파이프라인
 """
 
 import os
 import sys
 import time
+import math
 import threading
 from datetime import datetime
 
@@ -23,13 +25,20 @@ from kafka.config import KAFKA_TOPIC_USERS
 
 
 class RealtimeUserGenerator:
-    """실시간 고객 데이터 생성 시뮬레이터"""
+    """실시간 고객 데이터 생성 시뮬레이터 (S커브 감쇄)"""
+
+    # S커브 파라미터
+    DECAY_RATE = 0.6          # 감쇄율 (높을수록 빠르게 감소)
+    INITIAL_BATCH = 10        # 초기 배치 크기
+    MIN_BATCH = 1             # 최소 배치 크기
+    BASE_INTERVAL = 10        # 기본 간격 (초)
+    MAX_INTERVAL = 120        # 최대 간격 (초)
 
     def __init__(self, batch_size: int = 10, interval: int = 10):
         """
         Args:
-            batch_size: 한 번에 생성할 고객 수 (기본값: 10명)
-            interval: 생성 간격 (초) (기본값: 10초)
+            batch_size: 초기 배치 크기 (기본값: 10명, S커브로 감소)
+            interval: 초기 간격 (초) (기본값: 10초, S커브로 증가)
         """
         self.batch_size = batch_size
         self.interval = interval
@@ -41,19 +50,44 @@ class RealtimeUserGenerator:
         }
         self.lock = threading.Lock()
 
+    def _get_scurve_params(self, elapsed_hours: float):
+        """
+        S커브 감쇄에 따른 배치 크기와 간격 계산
+
+        elapsed_hours가 증가할수록:
+        - batch_size: 10 → 1로 감소
+        - interval: 10초 → 120초로 증가
+        """
+        # 감쇄 계수: e^(-decay_rate * hours)
+        decay = math.exp(-self.DECAY_RATE * elapsed_hours)
+
+        # 배치 크기: 초기값에서 감쇄
+        batch = max(self.MIN_BATCH, int(self.INITIAL_BATCH * decay))
+
+        # 간격: 감쇄가 클수록 간격 증가
+        interval = self.BASE_INTERVAL + (self.MAX_INTERVAL - self.BASE_INTERVAL) * (1 - decay)
+
+        return batch, interval
+
     def generate_users_continuously(self):
-        """고객 데이터를 지속적으로 생성 - Kafka에만 발행"""
+        """고객 데이터를 지속적으로 생성 - S커브 감쇄, Kafka에만 발행"""
         user_generator = UserGenerator()
         kafka_producer = KafkaProducer()
 
-        print(f"🚀 고객 데이터 생성 스레드 시작 (Kafka 발행 모드)...")
-        print(f"   - 배치 크기: {self.batch_size}명")
-        print(f"   - 생성 간격: {self.interval}초")
+        print(f"🚀 고객 데이터 생성 스레드 시작 (S커브 감쇄 모드)...")
+        print(f"   - 초기 배치: {self.INITIAL_BATCH}명 / {self.BASE_INTERVAL}초")
+        print(f"   - 감쇄율: {self.DECAY_RATE} (시간이 지날수록 느려짐)")
 
         try:
             while self.running:
+                # S커브 감쇄 계산
+                with self.lock:
+                    elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
+                elapsed_hours = elapsed / 3600.0
+                current_batch, current_interval = self._get_scurve_params(elapsed_hours)
+
                 # 1. 고객 데이터 생성
-                users_list = user_generator.generate_batch(self.batch_size)
+                users_list = user_generator.generate_batch(current_batch)
 
                 success_count = 0
                 failed_count = 0
@@ -81,14 +115,14 @@ class RealtimeUserGenerator:
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 with self.lock:
                     total_users = self.stats['users_created']
-                    elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                     tps = total_users / elapsed if elapsed > 0 else 0
 
-                print(f"[{timestamp}] 👥 고객 발행: {success_count}/{self.batch_size}명 성공 | "
-                      f"누적: {total_users:,}명 | TPS: {tps:.2f}")
+                print(f"[{timestamp}] 👥 고객 발행: {success_count}/{current_batch}명 | "
+                      f"누적: {total_users:,}명 | 간격: {current_interval:.0f}초 | "
+                      f"경과: {elapsed_hours:.1f}h")
 
-                # 3. 대기
-                time.sleep(self.interval)
+                # 3. S커브 감쇄된 간격으로 대기
+                time.sleep(current_interval)
 
         except Exception as e:
             print(f"❌ 고객 생성 스레드 오류: {e}")
@@ -131,7 +165,8 @@ class RealtimeUserGenerator:
         """)
 
         print("📋 생성 규칙:")
-        print(f"  - 👥 고객: {self.interval}초 간격으로 {self.batch_size}명씩 생성")
+        print(f"  - 👥 고객: S커브 감쇄 (초기 {self.INITIAL_BATCH}명/{self.BASE_INTERVAL}초 → 점진적 감소)")
+        print(f"  - 📉 감쇄율: {self.DECAY_RATE} (전원 BRONZE 등급)")
         print(f"  - 📡 토픽: {KAFKA_TOPIC_USERS}")
         print("  - Ctrl+C로 중지\n")
 
