@@ -12,6 +12,7 @@ if project_root not in sys.path:
 import logging
 from kafka.consumer import KafkaConsumerBase
 from kafka.config import KAFKA_TOPIC_ORDERS
+from sqlalchemy import func
 from database import crud, database, models
 
 logger = logging.getLogger(__name__)
@@ -49,23 +50,23 @@ class OrderConsumer:
                 db_order = models.Order(**order_data)
                 self.db.add(db_order)
 
-                # 3. User.last_ordered_at 갱신 (캐시 600+400 분리에 필요)
+                # 3. User.last_ordered_at 갱신 - atomic (캐시 600+400 분리에 필요)
                 user_id = order_data.get('user_id')
                 if user_id:
-                    db_user = self.db.query(models.User).filter(
+                    self.db.query(models.User).filter(
                         models.User.user_id == user_id
-                    ).first()
-                    if db_user:
-                        db_user.last_ordered_at = db_order.created_at
+                    ).update({
+                        models.User.last_ordered_at: db_order.created_at
+                    })
 
-                # 4. Product.order_count 갱신 (캐시 700+300 분리에 필요)
+                # 4. Product.order_count 갱신 - atomic (캐시 700+300 분리에 필요)
                 product_id = order_data.get('product_id')
                 if product_id:
-                    db_product = self.db.query(models.Product).filter(
+                    self.db.query(models.Product).filter(
                         models.Product.product_id == product_id
-                    ).first()
-                    if db_product:
-                        db_product.order_count = (db_product.order_count or 0) + 1
+                    ).update({
+                        models.Product.order_count: func.coalesce(models.Product.order_count, 0) + 1
+                    })
 
                 self.db.commit()
 
