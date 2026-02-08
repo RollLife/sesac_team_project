@@ -1,0 +1,226 @@
+version: '3.8'
+
+# ============================================
+# Spark 벤치마크용 Docker Compose
+# 
+# PostgreSQL 집계 vs Spark 집계 성능 비교
+#
+# 실행 방법:
+#   cd deploy
+#   docker-compose -f docker-compose.benchmark-spark.yml up --build
+#
+# 정리:
+#   docker-compose -f docker-compose.benchmark-spark.yml down -v
+# ============================================
+
+services:
+  # ============================================
+  # 인프라 서비스
+  # ============================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: spark_benchmark_postgres
+    restart: "no"
+    environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - spark_benchmark_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ============================================
+  # 초기화 서비스
+  # ============================================
+
+  db-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: spark_benchmark_db_init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    command: >
+      bash -c "
+        echo '⏳ DB 테이블 생성 중...';
+        python -c 'from database.init_db import init_db; init_db()';
+        echo '✅ DB 초기화 완료';
+      "
+    restart: "no"
+
+  # 초기 데이터 + 대량 주문 데이터 생성
+  data-seeder:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: spark_benchmark_data_seeder
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_ENABLED: "false"
+    command: >
+      bash -c "
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        📊 벤치마크용 데이터 생성 시작                       ';
+        echo '═══════════════════════════════════════════════════════════';
+        echo '⏳ 초기 데이터 생성 중 (유저 2000명, 상품 5000개)...';
+        python apps/seeders/initial_seeder.py --users 2000 --products 5000;
+        echo '✅ 초기 데이터 생성 완료';
+        echo '';
+        echo '⏳ 주문 데이터 대량 생성 중 (50000건)...';
+        python -c \"
+import sys
+sys.path.insert(0, '/app')
+from database import database, crud, models
+from collect.order_generator import OrderGenerator
+import random
+
+db = database.SessionLocal()
+users = [u[0] for u in db.query(models.User.id).limit(2000).all()]
+products = [p[0] for p in db.query(models.Product.id).limit(5000).all()]
+
+gen = OrderGenerator()
+for i in range(50000):
+    try:
+        order = gen.generate_single(random.choice(users), random.choice(products))
+        crud.create_order(db, order)
+        if (i + 1) % 5000 == 0:
+            print(f'  {i + 1}/50000 주문 생성 완료')
+    except Exception as e:
+        db.rollback()
+db.close()
+print('✅ 주문 50000건 생성 완료')
+\";
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        ✅ 데이터 생성 완료!                                ';
+        echo '═══════════════════════════════════════════════════════════';
+      "
+    restart: "no"
+
+  # ============================================
+  # 벤치마크 서비스
+  # ============================================
+
+  # 1단계: PostgreSQL 집계 벤치마크
+  benchmark-sql:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: spark_benchmark_sql
+    depends_on:
+      data-seeder:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      BENCHMARK_ITERATIONS: 10
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        🗄️ PostgreSQL 집계 벤치마크 시작                    ';
+        echo '═══════════════════════════════════════════════════════════';
+        python apps/benchmarks/benchmark_sql_aggregation.py;
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        ✅ PostgreSQL 집계 벤치마크 완료                    ';
+        echo '═══════════════════════════════════════════════════════════';
+      "
+    restart: "no"
+
+  # 2단계: Spark 집계 벤치마크
+  benchmark-spark:
+    image: apache/spark:3.5.0
+    container_name: spark_benchmark_spark
+    user: root
+    depends_on:
+      benchmark-sql:
+        condition: service_completed_successfully
+    volumes:
+      - ..:/app
+      - ../benchmark_results:/app/benchmark_results
+    environment:
+      TZ: Asia/Seoul
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/sesac_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      BENCHMARK_ITERATIONS: 10
+    command:
+      - bash
+      - -c
+      - |
+        echo '═══════════════════════════════════════════════════════════'
+        echo '        ⚡ Spark 집계 벤치마크 시작                         '
+        echo '═══════════════════════════════════════════════════════════'
+        /opt/spark/bin/spark-submit \
+          --master local[*] \
+          --packages org.postgresql:postgresql:42.6.0 \
+          --conf spark.driver.extraJavaOptions=-Duser.timezone=Asia/Seoul \
+          /app/apps/benchmarks/benchmark_spark_aggregation.py
+        echo '═══════════════════════════════════════════════════════════'
+        echo '        ✅ Spark 집계 벤치마크 완료                         '
+        echo '═══════════════════════════════════════════════════════════'
+    restart: "no"
+
+  # 3단계: 결과 비교 리포트 생성
+  benchmark-report:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: spark_benchmark_report
+    depends_on:
+      benchmark-spark:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        📊 Spark vs PostgreSQL 비교 리포트 생성             ';
+        echo '═══════════════════════════════════════════════════════════';
+        python apps/benchmarks/benchmark_spark_compare.py;
+        echo '';
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        ✅ 모든 벤치마크 완료!                              ';
+        echo '        📁 결과 파일: benchmark_results/ 폴더 확인          ';
+        echo '═══════════════════════════════════════════════════════════';
+      "
+    restart: "no"
+
+volumes:
+  spark_benchmark_postgres_data:

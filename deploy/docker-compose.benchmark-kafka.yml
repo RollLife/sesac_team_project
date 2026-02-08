@@ -1,0 +1,431 @@
+version: '3.8'
+
+# ============================================
+# Kafka 벤치마크용 Docker Compose
+# 
+# 순차처리 vs Kafka 파이프라인 성능 비교
+#
+# 실행 방법:
+#   cd deploy
+#   docker-compose -f docker-compose.benchmark-kafka.yml up --build
+#
+# 정리:
+#   docker-compose -f docker-compose.benchmark-kafka.yml down -v
+# ============================================
+
+services:
+  # ============================================
+  # 인프라 서비스
+  # ============================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: benchmark_postgres
+    restart: "no"
+    environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - benchmark_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: benchmark_redis
+    restart: "no"
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Kafka Broker 1
+  kafka1:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: benchmark_kafka1
+    restart: "no"
+    environment:
+      TZ: Asia/Seoul
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka1:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: 'BenchmarkClusterID123'
+    ports:
+      - "9092:9092"
+    volumes:
+      - benchmark_kafka1_data:/var/lib/kafka/data
+    command: >
+      bash -c " if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        kafka-storage format -t BenchmarkClusterID123 -c /etc/kafka/kafka.properties;
+      fi; /etc/confluent/docker/run "
+
+  kafka2:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: benchmark_kafka2
+    restart: "no"
+    environment:
+      TZ: Asia/Seoul
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9093,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9093,PLAINTEXT_INTERNAL://kafka2:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: 'BenchmarkClusterID123'
+    ports:
+      - "9093:9093"
+    volumes:
+      - benchmark_kafka2_data:/var/lib/kafka/data
+    command: >
+      bash -c " if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        kafka-storage format -t BenchmarkClusterID123 -c /etc/kafka/kafka.properties;
+      fi; /etc/confluent/docker/run "
+
+  kafka3:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: benchmark_kafka3
+    restart: "no"
+    environment:
+      TZ: Asia/Seoul
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:19093,2@kafka2:19093,3@kafka3:19093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094,CONTROLLER://0.0.0.0:19093,PLAINTEXT_INTERNAL://0.0.0.0:29094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9094,PLAINTEXT_INTERNAL://kafka3:29094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: 'BenchmarkClusterID123'
+    ports:
+      - "9094:9094"
+    volumes:
+      - benchmark_kafka3_data:/var/lib/kafka/data
+    command: >
+      bash -c " if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+        kafka-storage format -t BenchmarkClusterID123 -c /etc/kafka/kafka.properties;
+      fi; /etc/confluent/docker/run "
+
+  # ============================================
+  # 초기화 서비스
+  # ============================================
+
+  db-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_db_init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    command: >
+      bash -c "
+        echo '⏳ DB 테이블 생성 중...';
+        python -c 'from database.init_db import init_db; init_db()';
+        echo '✅ DB 초기화 완료';
+      "
+    restart: "no"
+
+  kafka-init:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_kafka_init
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      TZ: Asia/Seoul
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+    command: >
+      bash -c "
+        echo '⏳ Kafka 준비 대기 (20초)...';
+        sleep 20;
+        echo '🚀 토픽 생성 시작...';
+        python kafka/admin/setup_topics.py;
+        echo '✅ 토픽 초기화 완료';
+      "
+    restart: "no"
+
+  initial-seeder:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_initial_seeder
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_ENABLED: "false"
+    command: >
+      bash -c "
+        echo '⏳ 초기 데이터 생성 중 (유저 1000명, 상품 2000개)...';
+        python apps/seeders/initial_seeder.py --users 1000 --products 2000;
+        echo '✅ 초기 데이터 생성 완료';
+      "
+    restart: "no"
+
+  # ============================================
+  # 벤치마크 서비스
+  # ============================================
+
+  # 1단계: 순차처리 벤치마크
+  benchmark-sequential:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_sequential
+    depends_on:
+      initial-seeder:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      # 벤치마크 설정
+      BENCHMARK_RECORDS: 5000
+      SIMULATE_NETWORK_DELAY: "true"
+      NETWORK_DELAY_MS: 20
+      BATCH_SIZE: 100
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        🏃 순차처리 벤치마크 시작                           ';
+        echo '═══════════════════════════════════════════════════════════';
+        python apps/benchmarks/benchmark_sequential_producer.py;
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        ✅ 순차처리 벤치마크 완료                           ';
+        echo '═══════════════════════════════════════════════════════════';
+      "
+    restart: "no"
+
+  # 2단계: Kafka Producer 벤치마크
+  benchmark-kafka-producer:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_kafka_producer
+    depends_on:
+      benchmark-sequential:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_ENABLED: "true"
+      KAFKA_TOPIC_ORDERS: orders
+      # 벤치마크 설정
+      BENCHMARK_RECORDS: 5000
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        🚀 Kafka Producer 벤치마크 시작                     ';
+        echo '═══════════════════════════════════════════════════════════';
+        sleep 5;
+        python apps/benchmarks/benchmark_kafka_producer.py;
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        ✅ Kafka Producer 벤치마크 완료                     ';
+        echo '═══════════════════════════════════════════════════════════';
+      "
+    restart: "no"
+
+  # 3단계: Kafka Consumer 벤치마크 (3개 인스턴스)
+  benchmark-kafka-consumer-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_kafka_consumer_1
+    depends_on:
+      benchmark-kafka-producer:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_TOPIC_ORDERS: orders
+      CONSUMER_GROUP: benchmark-group
+      CONSUMER_ID: consumer-1
+      BENCHMARK_RECORDS: 1700
+      BENCHMARK_TIMEOUT: 120
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '[Consumer-1] 시작...';
+        python apps/benchmarks/benchmark_kafka_consumer.py;
+        echo '[Consumer-1] 완료';
+      "
+    restart: "no"
+
+  benchmark-kafka-consumer-2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_kafka_consumer_2
+    depends_on:
+      benchmark-kafka-producer:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_TOPIC_ORDERS: orders
+      CONSUMER_GROUP: benchmark-group
+      CONSUMER_ID: consumer-2
+      BENCHMARK_RECORDS: 1700
+      BENCHMARK_TIMEOUT: 120
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '[Consumer-2] 시작...';
+        python apps/benchmarks/benchmark_kafka_consumer.py;
+        echo '[Consumer-2] 완료';
+      "
+    restart: "no"
+
+  benchmark-kafka-consumer-3:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_kafka_consumer_3
+    depends_on:
+      benchmark-kafka-producer:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093,kafka3:29094
+      KAFKA_TOPIC_ORDERS: orders
+      CONSUMER_GROUP: benchmark-group
+      CONSUMER_ID: consumer-3
+      BENCHMARK_RECORDS: 1700
+      BENCHMARK_TIMEOUT: 120
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '[Consumer-3] 시작...';
+        python apps/benchmarks/benchmark_kafka_consumer.py;
+        echo '[Consumer-3] 완료';
+      "
+    restart: "no"
+
+  # 4단계: 결과 비교 리포트 생성
+  benchmark-report:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: benchmark_report
+    depends_on:
+      benchmark-kafka-consumer-1:
+        condition: service_completed_successfully
+      benchmark-kafka-consumer-2:
+        condition: service_completed_successfully
+      benchmark-kafka-consumer-3:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - ../benchmark_results:/app/benchmark_results
+    command: >
+      bash -c "
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        📊 벤치마크 결과 비교 리포트 생성                   ';
+        echo '═══════════════════════════════════════════════════════════';
+        python apps/benchmarks/benchmark_kafka_compare.py;
+        echo '';
+        echo '═══════════════════════════════════════════════════════════';
+        echo '        ✅ 모든 벤치마크 완료!                              ';
+        echo '        📁 결과 파일: benchmark_results/ 폴더 확인          ';
+        echo '═══════════════════════════════════════════════════════════';
+      "
+    restart: "no"
+
+volumes:
+  benchmark_postgres_data:
+  benchmark_kafka1_data:
+  benchmark_kafka2_data:
+  benchmark_kafka3_data:
