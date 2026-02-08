@@ -6,8 +6,8 @@
 
 ```
 ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│   Redis Cache    │────▶│ Purchase         │────▶│  상위 200명      │
-│  (1000명 캐싱)   │     │ Propensity       │     │  주문 후보 선택  │
+│   Redis Cache    │────▶│ Purchase         │────▶│  성향 가중치     │
+│  (1000명 캐싱)   │     │ Propensity       │     │  + 장바구니 구매 │
 └──────────────────┘     │ (성향 점수 계산)  │     └──────────────────┘
                          └──────────────────┘
 
@@ -83,16 +83,17 @@
 | 소비 증가 | 12% | **1.5x** | 월급날, 보너스 등 |
 | 대규모 지출 | 3% | **3.0x** | 이사, 결혼, 출산 등 |
 
-### 1-5. 상위 200명 선택 (`select_top_buyers`)
+### 1-5. 성향 가중치 선택 (`select_top_buyers`)
 
 ```python
 from collect.purchase_propensity import select_top_buyers
 
-# 캐싱된 1000명에서 상위 200명 선택
-top_buyers = select_top_buyers(users=cached_users, top_n=200, hour=current_hour)
+# 캐싱된 1000명 전체에서 성향 점수 계산
+all_buyers = select_top_buyers(users=cached_users, top_n=len(cached_users), hour=current_hour)
 
 # 결과: [(user_dict, score), (user_dict, score), ...]
-for user, score in top_buyers:
+# 성향 점수를 가중치로 사용하여 고객 1명 선택 → 장바구니(1~10개) 구매
+for user, score in all_buyers:
     print(f"{user['name']}: {score:.1f}점")
 ```
 
@@ -102,14 +103,14 @@ for user, score in top_buyers:
 
 | 등급 | 누적 금액 | 주문 횟수 | 비고 |
 |------|----------|----------|------|
-| **VIP** | 200만원 이상 | 10회 이상 | 최상위 |
-| **GOLD** | 100만원 이상 | 8회 이상 | |
-| **SILVER** | 30만원 이상 | 3회 이상 | |
+| **VIP** | 500만원 이상 | 30회 이상 | 최상위 |
+| **GOLD** | 200만원 이상 | 15회 이상 | |
+| **SILVER** | 50만원 이상 | 5회 이상 | |
 | **BRONZE** | 조건 미달 | - | 기본 등급 |
 
 - 금액과 횟수 **두 조건 모두** 충족해야 해당 등급
 - 높은 등급부터 순서대로 확인 (VIP → GOLD → SILVER → BRONZE)
-- 조건 미달 시 **강등** 가능
+- **느슨한 강등**: 한 번에 1단계씩만 (VIP→GOLD→SILVER→BRONZE)
 
 ### 갱신 주기
 
@@ -224,11 +225,13 @@ LIFE_EVENT_MULTIPLIERS = [1.0, 1.5, 3.0]  # 배수
 
 ```python
 GRADE_CRITERIA = {
-    "VIP": {"min_amount": 2_000_000, "min_orders": 10},
-    "GOLD":   {"min_amount": 1_000_000, "min_orders": 8},
-    "SILVER": {"min_amount":   300_000, "min_orders": 3},
-    "BRONZE": {"min_amount":         0, "min_orders": 0},
+    "VIP":     {"min_amount": 5_000_000, "min_orders": 30},
+    "GOLD":    {"min_amount": 2_000_000, "min_orders": 15},
+    "SILVER":  {"min_amount":   500_000, "min_orders": 5},
+    "BRONZE":  {"min_amount":         0, "min_orders": 0},
 }
+
+GRADE_ORDER = ["BRONZE", "SILVER", "GOLD", "VIP"]  # 강등 시 1단계씩만
 
 # 갱신 주기 변경 (기본: 600초 = 10분)
 REFRESH_INTERVAL = 600
