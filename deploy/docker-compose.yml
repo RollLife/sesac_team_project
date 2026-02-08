@@ -192,7 +192,7 @@ services:
       PGTZ: Asia/Seoul
       ADMINER_DEFAULT_SERVER: postgres
 
-  # Redis 캐시 서버 (Aging 기법 적용)
+  # Redis 캐시 서버 (구매이력/미구매 분리 적재)
   redis:
     image: redis:7-alpine
     container_name: local_redis
@@ -289,7 +289,7 @@ services:
     command: python apps/seeders/initial_seeder.py
     restart: "no" # 한 번만 실행
 
-  # Redis 캐시 워커 (Aging 기법으로 DB → Redis 갱신)
+  # Redis 캐시 워커 (구매이력/미구매 분리 적재로 DB → Redis 갱신)
   cache-worker:
     build:
       context: ..
@@ -316,8 +316,30 @@ services:
       REDIS_ENABLED: "true"
       CACHE_REFRESH_INTERVAL: 50
       CACHE_BATCH_SIZE: 1000
-      CACHE_NEW_DATA_RATIO: 0.5
     command: python cache/cache_worker.py
+    restart: always
+
+  # 고객 등급 갱신 배치 워커 (10분 주기)
+  grade-updater:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: grade_updater
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      initial-seeder:
+        condition: service_completed_successfully
+    environment:
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+      DB_TYPE: local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sesac_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    command: python -m apps.batch.grade_updater
     restart: always
 
   # Redis 실시간 모니터링

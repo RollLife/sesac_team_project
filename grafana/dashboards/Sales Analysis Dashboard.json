@@ -349,7 +349,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT user_grade AS \"등급\", COUNT(*) AS \"고객수\" FROM users GROUP BY user_grade ORDER BY CASE user_grade WHEN 'BRONZE' THEN 1 WHEN 'SILVER' THEN 2 WHEN 'GOLD' THEN 3 WHEN 'VIP' THEN 4 END;",
+          "rawSql": "SELECT grade AS \"등급\", COUNT(*) AS \"고객수\" FROM users GROUP BY grade ORDER BY CASE grade WHEN 'BRONZE' THEN 1 WHEN 'SILVER' THEN 2 WHEN 'GOLD' THEN 3 WHEN 'VIP' THEN 4 END;",
           "refId": "A"
         }
       ],
@@ -470,7 +470,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT u.user_grade AS \"등급\", SUM(o.total_amount) AS \"매출\" FROM orders o JOIN users u ON o.user_id = u.user_id WHERE o.created_at >= $__timeFrom() GROUP BY u.user_grade ORDER BY CASE u.user_grade WHEN 'BRONZE' THEN 1 WHEN 'SILVER' THEN 2 WHEN 'GOLD' THEN 3 WHEN 'VIP' THEN 4 END;",
+          "rawSql": "SELECT u.grade AS \"등급\", SUM(o.total_amount) AS \"매출\" FROM orders o JOIN users u ON o.user_id = u.user_id WHERE o.created_at >= $__timeFrom() GROUP BY u.grade ORDER BY CASE u.grade WHEN 'BRONZE' THEN 1 WHEN 'SILVER' THEN 2 WHEN 'GOLD' THEN 3 WHEN 'VIP' THEN 4 END;",
           "refId": "A"
         }
       ],
