@@ -18,6 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
+  "id": 5,
   "links": [],
   "panels": [
     {
@@ -50,7 +51,7 @@
             "steps": [
               {
                 "color": "#73BF69",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#FADE2A",
@@ -74,10 +75,11 @@
       },
       "id": 10,
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -85,8 +87,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -128,7 +133,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -168,6 +173,7 @@
           }
         ]
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -210,7 +216,7 @@
             "steps": [
               {
                 "color": "#73BF69",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#F2495C",
@@ -230,10 +236,11 @@
       },
       "id": 11,
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -241,8 +248,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -282,7 +292,7 @@
             "steps": [
               {
                 "color": "orange",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -337,6 +347,7 @@
         "cellHeight": "sm",
         "showHeader": true
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -379,7 +390,7 @@
             "steps": [
               {
                 "color": "#73BF69",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#FADE2A",
@@ -403,10 +414,11 @@
       },
       "id": 12,
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -414,14 +426,17 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) as \"이상주문\" FROM orders WHERE total_amount < 0 OR total_amount >= 5000000;",
+          "rawSql": "SELECT COUNT(*) as \"이상주문\" FROM orders WHERE total_amount < 0 OR total_amount >= 10000000;",
           "refId": "A"
         }
       ],
@@ -433,7 +448,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "sesac_postgres_uid"
       },
-      "description": "비정상 금액 주문 상세 (500만원 이상 또는 마이너스)",
+      "description": "비정상 금액 주문 상세 (1,000만원 이상 또는 마이너스)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -447,10 +462,10 @@
             "footer": {
               "reducers": []
             },
-            "inspect": false,
             "hideFrom": {
               "viz": false
-            }
+            },
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
@@ -458,7 +473,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -502,12 +517,13 @@
           }
         ]
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT o.order_id as \"주문번호\", u.name as \"구매자명\", o.total_amount as \"결제금액\", TO_CHAR(o.created_at, 'YYYY-MM-DD HH24:MI:SS') as \"주문시간\" FROM orders o LEFT JOIN users u ON o.user_id = u.user_id WHERE (o.total_amount < 0 OR o.total_amount >= 5000000) ORDER BY o.created_at DESC LIMIT 50;",
+          "rawSql": "SELECT o.order_id as \"주문번호\", u.name as \"구매자명\", o.total_amount as \"결제금액\", TO_CHAR(o.created_at, 'YYYY-MM-DD HH24:MI:SS') as \"주문시간\" FROM orders o LEFT JOIN users u ON o.user_id = u.user_id WHERE (o.total_amount < 0 OR o.total_amount >= 10000000) ORDER BY o.created_at DESC LIMIT 50;",
           "refId": "A"
         }
       ],
@@ -533,5 +549,5 @@
   "timezone": "browser",
   "title": "Alert Dashboard",
   "uid": "g524c9",
-  "version": 1
+  "version": 2
 }

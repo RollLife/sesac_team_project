@@ -18,6 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
+  "id": 6,
   "links": [],
   "panels": [
     {
@@ -50,7 +51,7 @@
             "steps": [
               {
                 "color": "#73BF69",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#FADE2A",
@@ -67,7 +68,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 8,
         "x": 0,
         "y": 1
@@ -97,7 +98,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT SUM(total_amount) as \"총매출\" FROM orders WHERE created_at >= $__timeFrom();",
+          "rawSql": "SELECT SUM(total_amount) as \"총매출\" \nFROM orders \nWHERE created_at >= $__timeFrom();",
           "refId": "A"
         }
       ],
@@ -121,7 +122,7 @@
             "steps": [
               {
                 "color": "#5794F2",
-                "value": null
+                "value": 0
               }
             ]
           },
@@ -130,7 +131,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 8,
         "x": 8,
         "y": 1
@@ -141,6 +142,7 @@
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -148,7 +150,9 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
       "pluginVersion": "12.3.2",
       "targets": [
@@ -156,7 +160,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) as \"총주문\" FROM orders WHERE created_at >= $__timeFrom();",
+          "rawSql": "SELECT COUNT(*) as \"총주문\" \nFROM orders \nWHERE created_at >= $__timeFrom();",
           "refId": "A"
         }
       ],
@@ -180,7 +184,7 @@
             "steps": [
               {
                 "color": "#B877D9",
-                "value": null
+                "value": 0
               }
             ]
           },
@@ -189,7 +193,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 8,
         "x": 16,
         "y": 1
@@ -200,6 +204,7 @@
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -207,7 +212,9 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
       "pluginVersion": "12.3.2",
       "targets": [
@@ -215,7 +222,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ROUND(AVG(total_amount)) as \"평균객단가\" FROM orders WHERE created_at >= $__timeFrom();",
+          "rawSql": "SELECT ROUND(AVG(total_amount)) as \"평균객단가\" \nFROM orders \nWHERE created_at >= $__timeFrom();",
           "refId": "A"
         }
       ],
@@ -228,7 +235,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 6
       },
       "id": 105,
       "panels": [],
@@ -240,447 +247,77 @@
         "type": "grafana-postgresql-datasource",
         "uid": "sesac_postgres_uid"
       },
-      "description": "현재 등급별 고객 분포",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "BRONZE"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#CD7F32",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "SILVER"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#C0C0C0",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "GOLD"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#FFD700",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "VIP"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#8B5CF6",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 8
-      },
-      "id": 14,
-      "options": {
-        "displayLabels": [
-          "name",
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "percent"
-          ]
-        },
-        "pieType": "donut",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT grade AS \"등급\", COUNT(*) AS \"고객수\" FROM users GROUP BY grade ORDER BY CASE grade WHEN 'BRONZE' THEN 1 WHEN 'SILVER' THEN 2 WHEN 'GOLD' THEN 3 WHEN 'VIP' THEN 4 END;",
-          "refId": "A"
-        }
-      ],
-      "title": "🏅 등급별 고객 분포",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "sesac_postgres_uid"
-      },
-      "description": "등급별 총 매출 기여도",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "unit": "locale"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "BRONZE"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#CD7F32",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "SILVER"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#C0C0C0",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "GOLD"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#FFD700",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "VIP"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#8B5CF6",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 8
-      },
-      "id": 15,
-      "options": {
-        "displayLabels": [
-          "name",
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "percent"
-          ]
-        },
-        "pieType": "donut",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT u.grade AS \"등급\", SUM(o.total_amount) AS \"매출\" FROM orders o JOIN users u ON o.user_id = u.user_id WHERE o.created_at >= $__timeFrom() GROUP BY u.grade ORDER BY CASE u.grade WHEN 'BRONZE' THEN 1 WHEN 'SILVER' THEN 2 WHEN 'GOLD' THEN 3 WHEN 'VIP' THEN 4 END;",
-          "refId": "A"
-        }
-      ],
-      "title": "💰 등급별 매출 비중",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "sesac_postgres_uid"
-      },
-      "description": "VIP(50만+), 일반(1~50만), 휴면(0원) 분포",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "VIP"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#F2495C",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "일반"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#73BF69",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "휴면"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#8D8D8D",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 8
-      },
-      "id": 16,
-      "options": {
-        "displayLabels": [
-          "name",
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "percent"
-          ]
-        },
-        "pieType": "donut",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend\n  FROM orders\n  WHERE created_at >= NOW() - INTERVAL '30 days'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 500000 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"세그먼트\",\n  COUNT(*) AS \"고객수\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
-          "refId": "A"
-        }
-      ],
-      "title": "👥 고객 유형 분포",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "sesac_postgres_uid"
-      },
-      "description": "세그먼트별 총 매출 기여도",
+      "description": "매출 상위 20% 핵심 고객 명단",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "매출",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "scheme",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
             },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
+            "footer": {
+              "reducers": []
             },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
-            "mode": "percentage",
+            "mode": "absolute",
             "steps": [
               {
-                "color": "#C8F2C2",
-                "value": null
-              },
-              {
-                "color": "#73BF69",
-                "value": 30
-              },
-              {
-                "color": "#56A64B",
-                "value": 60
-              },
-              {
-                "color": "#37872D",
-                "value": 90
+                "color": "green",
+                "value": 0
               }
             ]
-          },
-          "unit": "locale"
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "총매출"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 8,
-        "w": 16,
+        "h": 6,
+        "w": 12,
         "x": 0,
-        "y": 16
+        "y": 7
       },
-      "id": 17,
+      "id": 19,
       "options": {
-        "barRadius": 0.1,
-        "barWidth": 0.6,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": false
-        },
-        "orientation": "horizontal",
-        "showValue": "always",
-        "stacking": "none",
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "총매출"
+          }
+        ]
       },
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend\n  FROM orders\n  WHERE created_at >= NOW() - INTERVAL '30 days'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 500000 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"세그먼트\",\n  SUM(total_spend) AS \"총매출\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
+          "rawSql": "WITH user_total AS (\n  SELECT\n    u.name AS \"고객명\",\n    u.email AS \"이메일\",\n    SUM(o.total_amount) AS \"총매출\",\n    COUNT(o.order_id) AS \"주문수\"\n  FROM orders o\n  JOIN users u ON o.user_id = u.user_id\n  WHERE o.created_at >= $__timeFrom() AND o.status = 'Success'\n  GROUP BY u.user_id, u.name, u.email\n),\nranked_users AS (\n  SELECT\n    *,\n    PERCENT_RANK() OVER (ORDER BY \"총매출\" DESC) as pct_rank\n  FROM user_total\n)\nSELECT\n  \"고객명\",\n  \"이메일\",\n  \"총매출\",\n  \"주문수\"\nFROM ranked_users\nWHERE pct_rank <= 0.2\nORDER BY \"총매출\" DESC;",
           "refId": "A"
         }
       ],
-      "title": "💵 고객 유형별 매출 기여도",
-      "type": "barchart"
+      "title": "💎 매출 최상위 고객 리스트",
+      "type": "table"
     },
     {
       "datasource": {
@@ -757,14 +394,30 @@
                 "value": "locale"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "비율(%)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 16
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 7
       },
       "id": 18,
       "options": {
@@ -777,7 +430,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  u.grade as \"등급\",\n  COUNT(DISTINCT u.user_id) as \"고객수\",\n  ROUND(COUNT(DISTINCT u.user_id) * 100.0 / (SELECT COUNT(*) FROM users), 1) as \"비율(%)\",\n  COALESCE(SUM(o.total_amount), 0) as \"총매출\",\n  COALESCE(ROUND(SUM(o.total_amount)::numeric / NULLIF(COUNT(DISTINCT u.user_id), 0)), 0) as \"인당평균매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY u.grade\nORDER BY\n  CASE u.grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
+          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(DISTINCT user_id) as \"고객수\",\n  ROUND(COUNT(DISTINCT user_id) * 100.0 / (SELECT COUNT(DISTINCT user_id) FROM orders WHERE created_at >= $__timeFrom() AND status = 'Success'), 1) as \"비율(%)\",\n  SUM(total_spend) as \"총매출\",\n  ROUND(AVG(total_spend), 0) as \"인당평균매출\"\nFROM (\n  SELECT\n    user_id,\n    SUM(total_amount) as total_spend,\n    CASE\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 10 THEN 'VIP'\n      WHEN SUM(total_amount) >= 1000000 AND COUNT(order_id) >= 8 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 300000 AND COUNT(order_id) >= 3 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE created_at >= $__timeFrom() AND status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -785,12 +438,490 @@
       "type": "table"
     },
     {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "description": "VIP(50만+), 일반(1~50만), 휴면(0원) 분포",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "일반"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#9FB9E2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VIP"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#e0a2b4",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "휴면"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#B0B0B0",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 13
+      },
+      "id": 16,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend, COUNT(*) as order_count\n  FROM orders\n  \nWHERE created_at >= NOW() - INTERVAL '30 days'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 2000000 AND order_count >= 10 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"세그먼트\",\n  COUNT(*) AS \"고객수\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "👥 고객 유형 분포",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "description": "현재 등급별 고객 분포",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BRONZE"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#CD7F32",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SILVER"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#C0C0C0",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GOLD"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#FFD700",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VIP"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#e0a2b4",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 13
+      },
+      "id": 14,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(*) as \"고객수\"\nFROM (\n  SELECT\n    user_id,\n    CASE\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 10 THEN 'VIP'\n      WHEN SUM(total_amount) >= 1000000 AND COUNT(order_id) >= 8 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 300000 AND COUNT(order_id) >= 3 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE created_at >= $__timeFrom() AND status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
+          "refId": "A"
+        }
+      ],
+      "title": "🏅 등급별 고객 분포",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "description": "등급별 총 매출 기여도",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "locale"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BRONZE"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#CD7F32",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SILVER"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#C0C0C0",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GOLD"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#FFD700",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VIP"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#e0a2b4",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 13
+      },
+      "id": 15,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  grade as \"등급\",\n  SUM(total_spend) as \"매출\"\nFROM (\n  SELECT\n    user_id,\n    SUM(total_amount) as total_spend,\n    CASE\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 10 THEN 'VIP'\n      WHEN SUM(total_amount) >= 1000000 AND COUNT(order_id) >= 8 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 300000 AND COUNT(order_id) >= 3 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE created_at >= $__timeFrom() AND status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
+          "refId": "A"
+        }
+      ],
+      "title": "💰 등급별 매출 비중",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "description": "고객 등급별 총 매출 기여도",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "매출",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "#9FB9E2",
+                "value": 0
+              },
+              {
+                "color": "#B0B0B0",
+                "value": 1
+              },
+              {
+                "color": "#e0a2b4",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "locale"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 17,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.6,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend, COUNT(*) as order_count\n  FROM orders\n  WHERE created_at >= NOW() - INTERVAL '30 days'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 2000000 AND order_count >= 10 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"고객 유형\",\n  SUM(total_spend) AS \"총매출\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "💵 고객 유형별 매출 기여도",
+      "type": "barchart"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 27
       },
       "id": 102,
       "panels": [],
@@ -839,7 +970,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -860,10 +991,10 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 28
       },
       "id": 4,
       "options": {
@@ -874,6 +1005,9 @@
           "showLegend": true
         },
         "mapping": "auto",
+        "series": [
+          {}
+        ],
         "tooltip": {
           "hideZeros": false,
           "mode": "multi",
@@ -979,10 +1113,10 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 28
       },
       "id": 2,
       "options": {
@@ -1068,7 +1202,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           },
@@ -1138,10 +1272,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 37
       },
       "id": 1,
       "options": {
@@ -1188,7 +1322,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 46
       },
       "id": 101,
       "panels": [],
@@ -1246,7 +1380,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           },
@@ -1255,10 +1389,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 47
       },
       "id": 3,
       "options": {
@@ -1285,11 +1419,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  date_trunc('minute', created_at - INTERVAL '9 hours') - \n  (EXTRACT(minute FROM created_at - INTERVAL '9 hours')::int % 15) * INTERVAL '1 minute',\n  count(*) as value,\n  '주문 건수' as metric\nFROM orders\nWHERE created_at >= $__timeFrom()\nGROUP BY 1\nORDER BY 1;",
+          "rawSql": "SELECT\n  date_trunc('minute', created_at - INTERVAL '9 hours') - \n  (EXTRACT(minute FROM created_at - INTERVAL '9 hours')::int % 5) * INTERVAL '1 minute',\n  count(*) as value,\n  '주문 건수' as metric\nFROM orders\nWHERE created_at >= $__timeFrom()\nGROUP BY 1\nORDER BY 1;",
           "refId": "A"
         }
       ],
-      "title": "📈 시간대별 주문 추세 (15분 기준)",
+      "title": "📈 시간대별 주문 추세 (5분 기준)",
       "type": "timeseries"
     },
     {
@@ -1330,7 +1464,7 @@
             "steps": [
               {
                 "color": "#73BF69",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#FADE2A",
@@ -1363,7 +1497,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 56
       },
       "id": 5,
       "options": {
@@ -1434,7 +1568,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -1477,7 +1611,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 56
       },
       "id": 6,
       "options": {
@@ -1510,7 +1644,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 64
       },
       "id": 104,
       "panels": [],
@@ -1555,7 +1689,7 @@
             "steps": [
               {
                 "color": "#C8F2C2",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#73BF69",
@@ -1579,7 +1713,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 61
+        "y": 65
       },
       "id": 8,
       "options": {
@@ -1656,7 +1790,7 @@
             "steps": [
               {
                 "color": "#FFF899",
-                "value": null
+                "value": 0
               },
               {
                 "color": "#FADE2A",
@@ -1680,7 +1814,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 61
+        "y": 65
       },
       "id": 7,
       "options": {
@@ -1712,7 +1846,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH user_categories AS (\n  SELECT \n    user_id,\n    category\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id, category\n)\nSELECT\n  a.category || ' + ' || b.category AS \"카테고리_조합\",\n  COUNT(DISTINCT a.user_id) AS \"동시구매고객수\"\nFROM user_categories a\nJOIN user_categories b \n  ON a.user_id = b.user_id AND a.category < b.category\nGROUP BY a.category, b.category\nHAVING COUNT(DISTINCT a.user_id) >= 5\nORDER BY \"동시구매고객수\" DESC\nLIMIT 20;",
+          "rawSql": "WITH user_categories AS (\n  \nSELECT \n    user_id,\n    category\n  FROM orders\n  \nWHERE status = 'Success'\n  GROUP BY user_id, category\n)\nSELECT\n  a.category || ' + ' || b.category AS \"카테고리_조합\",\n  COUNT(DISTINCT a.user_id) AS \"동시구매고객수\"\nFROM user_categories a\nJOIN user_categories b \n  ON a.user_id = b.user_id AND a.category < b.category\nGROUP BY a.category, b.category\nHAVING COUNT(DISTINCT a.user_id) >= 5\nORDER BY \"동시구매고객수\" DESC\nLIMIT 20;",
           "refId": "A"
         }
       ],
@@ -1725,7 +1859,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 71
+        "y": 75
       },
       "id": 103,
       "panels": [],
@@ -1757,7 +1891,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -1813,7 +1947,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 72
+        "y": 76
       },
       "id": 10,
       "options": {
@@ -1930,7 +2064,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -1986,7 +2120,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 72
+        "y": 76
       },
       "id": 11,
       "options": {
@@ -2098,5 +2232,5 @@
   "timezone": "browser",
   "title": "Sales Analysis Dashboard",
   "uid": "adbzt8123213216",
-  "version": 1
+  "version": 15
 }
