@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 3,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -440,7 +440,9 @@
   "preload": false,
   "refresh": "auto",
   "schemaVersion": 42,
-  "tags": [],
+  "tags": [
+    "Alert"
+  ],
   "templating": {
     "list": []
   },
@@ -452,5 +454,5 @@
   "timezone": "browser",
   "title": "KoKoA Shopping",
   "uid": "g524c9",
-  "version": 10
+  "version": 1
 }
