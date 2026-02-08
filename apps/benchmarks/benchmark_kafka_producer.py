@@ -95,8 +95,8 @@ def run_kafka_benchmark():
 
     # 기존 유저/상품 ID 조회
     try:
-        existing_users = db.query(models.User.id).limit(1000).all()
-        existing_products = db.query(models.Product.id).limit(1000).all()
+        existing_users = db.query(models.User.user_id).limit(1000).all()
+        existing_products = db.query(models.Product.product_id).limit(1000).all()
         
         if not existing_users or not existing_products:
             print("❌ 오류: 기존 유저/상품 데이터가 없습니다. initial_seeder를 먼저 실행하세요.")
