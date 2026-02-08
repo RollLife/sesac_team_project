@@ -643,7 +643,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 16,
         "x": 0,
         "y": 16
       },
@@ -681,6 +681,108 @@
       ],
       "title": "💵 고객 유형별 매출 기여도",
       "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "description": "등급별 고객 수, 비율, 매출, 인당평균매출 상세",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "hideFrom": {
+              "viz": false
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "총매출"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "인당평균매출"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "고객수"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 18,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  u.grade as \"등급\",\n  COUNT(DISTINCT u.user_id) as \"고객수\",\n  ROUND(COUNT(DISTINCT u.user_id) * 100.0 / (SELECT COUNT(*) FROM users), 1) as \"비율(%)\",\n  COALESCE(SUM(o.total_amount), 0) as \"총매출\",\n  COALESCE(ROUND(SUM(o.total_amount)::numeric / NULLIF(COUNT(DISTINCT u.user_id), 0)), 0) as \"인당평균매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY u.grade\nORDER BY\n  CASE u.grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 등급별 고객 상세",
+      "type": "table"
     },
     {
       "collapsed": false,
