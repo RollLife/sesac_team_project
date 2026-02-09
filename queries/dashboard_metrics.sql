@@ -56,7 +56,7 @@ SELECT
 FROM orders
 WHERE created_at >= NOW() - INTERVAL '1 day'
 GROUP BY EXTRACT(HOUR FROM created_at)
-ORDER BY 1;
+ORDER BY EXTRACT(HOUR FROM created_at);
 
 -- 시간대별 주문 추세 (테이블용)
 SELECT        -- 요일별, 시간대별 주문 건수 및 매출 추출
@@ -371,3 +371,20 @@ SELECT
 FROM orders o
 JOIN users u ON o.user_id = u.user_id
 GROUP BY u.address_district;
+
+
+-- ============================================================
+-- 성별 & 카테고리 분석
+-- ============================================================
+
+-- 성별별 카테고리 구매 빈도
+-- 카테고리별 남성/여성 구매 건수 비교
+SELECT
+  category AS "카테고리",
+  COUNT(CASE WHEN user_gender = 'M' THEN 1 END) AS "남성",
+  COUNT(CASE WHEN user_gender = 'F' THEN 1 END) AS "여성"
+FROM orders
+WHERE status = 'Success' AND user_gender IS NOT NULL AND category IS NOT NULL
+GROUP BY category
+ORDER BY (COUNT(CASE WHEN user_gender = 'M' THEN 1 END) + COUNT(CASE WHEN user_gender = 'F' THEN 1 END)) DESC
+LIMIT 10;
