@@ -430,7 +430,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(DISTINCT user_id) as \"고객수\",\n  ROUND(COUNT(DISTINCT user_id) * 100.0 / (SELECT COUNT(DISTINCT user_id) FROM orders WHERE status = 'Success'), 1) as \"비율(%)\",\n  SUM(total_spend) as \"총매출\",\n  ROUND(AVG(total_spend), 0) as \"인당평균매출\"\nFROM (\n  SELECT\n    user_id,\n    SUM(total_amount) as total_spend,\n    CASE\n      WHEN SUM(total_amount) >= 5000000 AND COUNT(order_id) >= 30 THEN 'VIP'\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 15 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 500000 AND COUNT(order_id) >= 5 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
+          "rawSql": "SELECT\n  u.grade as \"등급\",\n  COUNT(u.user_id) as \"고객수\",\n  ROUND(COUNT(u.user_id) * 100.0 / (SELECT COUNT(*) FROM users), 1) as \"비율(%)\",\n  COALESCE(SUM(o.total_amount), 0) as \"총매출\",\n  ROUND(COALESCE(AVG(o.total_amount), 0), 0) as \"인당평균매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY u.grade\nORDER BY\n  CASE u.grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -548,7 +548,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend, COUNT(*) as order_count\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 5000000 AND order_count >= 30 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"세그먼트\",\n  COUNT(*) AS \"고객수\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
+          "rawSql": "SELECT\n  CASE\n    WHEN u.grade = 'VIP' THEN 'VIP'\n    WHEN u.status = 'DORMANT' THEN '휴면'\n    ELSE '일반'\n  END AS \"세그먼트\",\n  COUNT(u.user_id) AS \"고객수\"\nFROM users u\nGROUP BY 1\nORDER BY 2 DESC;",
           "refId": "A"
         }
       ],
@@ -680,7 +680,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(*) as \"고객수\"\nFROM (\n  SELECT\n    user_id,\n    CASE\n      WHEN SUM(total_amount) >= 5000000 AND COUNT(order_id) >= 30 THEN 'VIP'\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 15 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 500000 AND COUNT(order_id) >= 5 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
+          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(*) as \"고객수\"\nFROM users\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -812,7 +812,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  grade as \"등급\",\n  SUM(total_spend) as \"매출\"\nFROM (\n  SELECT\n    user_id,\n    SUM(total_amount) as total_spend,\n    CASE\n      WHEN SUM(total_amount) >= 5000000 AND COUNT(order_id) >= 30 THEN 'VIP'\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 15 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 500000 AND COUNT(order_id) >= 5 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
+          "rawSql": "SELECT\n  u.grade as \"등급\",\n  COALESCE(SUM(o.total_amount), 0) as \"매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY u.grade\nORDER BY\n  CASE u.grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -908,7 +908,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend, COUNT(*) as order_count\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 5000000 AND order_count >= 30 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"고객 유형\",\n  SUM(total_spend) AS \"총매출\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
+          "rawSql": "SELECT\n  CASE\n    WHEN u.grade = 'VIP' THEN 'VIP'\n    WHEN u.status = 'DORMANT' THEN '휴면'\n    ELSE '일반'\n  END AS \"고객 유형\",\n  COALESCE(SUM(o.total_amount), 0) AS \"총매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY 1\nORDER BY 2 DESC;",
           "refId": "A"
         }
       ],
