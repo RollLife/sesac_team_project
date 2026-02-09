@@ -430,7 +430,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  u.grade as \"등급\",\n  COUNT(u.user_id) as \"고객수\",\n  ROUND(COUNT(u.user_id) * 100.0 / (SELECT COUNT(*) FROM users), 1) as \"비율(%)\",\n  COALESCE(SUM(o.total_amount), 0) as \"총매출\",\n  ROUND(COALESCE(AVG(o.total_amount), 0), 0) as \"인당평균매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY u.grade\nORDER BY\n  CASE u.grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
+          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(DISTINCT user_id) as \"고객수\",\n  ROUND(COUNT(DISTINCT user_id) * 100.0 / (SELECT COUNT(DISTINCT user_id) FROM orders WHERE status = 'Success'), 1) as \"비율(%)\",\n  SUM(total_spend) as \"총매출\",\n  ROUND(AVG(total_spend), 0) as \"인당평균매출\"\nFROM (\n  SELECT\n    user_id,\n    SUM(total_amount) as total_spend,\n    CASE\n      WHEN SUM(total_amount) >= 5000000 AND COUNT(order_id) >= 30 THEN 'VIP'\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 15 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 500000 AND COUNT(order_id) >= 5 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'VIP' THEN 1\n    WHEN 'GOLD' THEN 2\n    WHEN 'SILVER' THEN 3\n    WHEN 'BRONZE' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -548,7 +548,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  CASE\n    WHEN u.grade = 'VIP' THEN 'VIP'\n    WHEN u.status = 'DORMANT' THEN '휴면'\n    ELSE '일반'\n  END AS \"세그먼트\",\n  COUNT(u.user_id) AS \"고객수\"\nFROM users u\nGROUP BY 1\nORDER BY 2 DESC;",
+          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend, COUNT(*) as order_count\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 5000000 AND order_count >= 30 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"세그먼트\",\n  COUNT(*) AS \"고객수\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
           "refId": "A"
         }
       ],
@@ -680,7 +680,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(*) as \"고객수\"\nFROM users\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
+          "rawSql": "SELECT\n  grade as \"등급\",\n  COUNT(*) as \"고객수\"\nFROM (\n  SELECT\n    user_id,\n    CASE\n      WHEN SUM(total_amount) >= 5000000 AND COUNT(order_id) >= 30 THEN 'VIP'\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 15 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 500000 AND COUNT(order_id) >= 5 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -812,7 +812,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  u.grade as \"등급\",\n  COALESCE(SUM(o.total_amount), 0) as \"매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY u.grade\nORDER BY\n  CASE u.grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
+          "rawSql": "SELECT\n  grade as \"등급\",\n  SUM(total_spend) as \"매출\"\nFROM (\n  SELECT\n    user_id,\n    SUM(total_amount) as total_spend,\n    CASE\n      WHEN SUM(total_amount) >= 5000000 AND COUNT(order_id) >= 30 THEN 'VIP'\n      WHEN SUM(total_amount) >= 2000000 AND COUNT(order_id) >= 15 THEN 'GOLD'\n      WHEN SUM(total_amount) >= 500000 AND COUNT(order_id) >= 5 THEN 'SILVER'\n      ELSE 'BRONZE'\n    END as grade\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n) sub\nGROUP BY grade\nORDER BY\n  CASE grade\n    WHEN 'BRONZE' THEN 1\n    WHEN 'SILVER' THEN 2\n    WHEN 'GOLD' THEN 3\n    WHEN 'VIP' THEN 4\n  END;",
           "refId": "A"
         }
       ],
@@ -908,7 +908,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  CASE\n    WHEN u.grade = 'VIP' THEN 'VIP'\n    WHEN u.status = 'DORMANT' THEN '휴면'\n    ELSE '일반'\n  END AS \"고객 유형\",\n  COALESCE(SUM(o.total_amount), 0) AS \"총매출\"\nFROM users u\nLEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'Success'\nGROUP BY 1\nORDER BY 2 DESC;",
+          "rawSql": "WITH user_spend AS (\n  SELECT user_id, COALESCE(SUM(total_amount), 0) as total_spend, COUNT(*) as order_count\n  FROM orders\n  WHERE status = 'Success'\n  GROUP BY user_id\n)\nSELECT \n  CASE \n    WHEN total_spend >= 5000000 AND order_count >= 30 THEN 'VIP'\n    WHEN total_spend >= 10000 THEN '일반'\n    ELSE '휴면'\n  END AS \"고객 유형\",\n  SUM(total_spend) AS \"총매출\"\nFROM user_spend\nGROUP BY 1\nORDER BY 2 DESC;",
           "refId": "A"
         }
       ],
@@ -1529,8 +1529,25 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  EXTRACT(HOUR FROM created_at)::text || '시' AS \"시간대\",\n  COUNT(*) AS \"주문수\"\nFROM orders\nWHERE created_at >= NOW() - INTERVAL '1 day'\nGROUP BY EXTRACT(HOUR FROM created_at)\nORDER BY 1;",
-          "refId": "A"
+          "rawSql": "SELECT\n  EXTRACT(HOUR FROM created_at)::text || '시' AS \"시간대\",\n  COUNT(*) AS \"주문수\"\nFROM orders\nWHERE created_at >= NOW() - INTERVAL '1 day'\nGROUP BY EXTRACT(HOUR FROM created_at)\nORDER BY EXTRACT(HOUR FROM created_at);",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
         }
       ],
       "title": "🕐 시간대별 주문 분포",
@@ -1619,8 +1636,8 @@
         "showHeader": true,
         "sortBy": [
           {
-            "desc": true,
-            "displayName": "매출"
+            "desc": false,
+            "displayName": "시간대"
           }
         ]
       },
@@ -1648,8 +1665,128 @@
       },
       "id": 104,
       "panels": [],
-      "title": "🏷️ 상품 & 브랜드 분석",
+      "title": "🏷️ 카테고리 & 브랜드 분석",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "sesac_postgres_uid"
+      },
+      "description": "여성/남성 카테고리별 구매 건수",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "구매 건수",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "남성"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#5794F2",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "여성"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#FF6B9D",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 65
+      },
+      "id": 112,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "dataset": "sesac_db",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  category AS \"카테고리\",\n  COUNT(CASE WHEN user_gender = 'M' THEN 1 END) AS \"남성\",\n  COUNT(CASE WHEN user_gender = 'F' THEN 1 END) AS \"여성\"\nFROM orders\nWHERE status = 'Success' AND user_gender IS NOT NULL AND category IS NOT NULL\nGROUP BY category\nORDER BY (COUNT(CASE WHEN user_gender = 'M' THEN 1 END) + COUNT(CASE WHEN user_gender = 'F' THEN 1 END)) DESC\nLIMIT 10;",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 성별 선호 카테고리 비교",
+      "type": "barchart"
     },
     {
       "datasource": {
@@ -1713,7 +1850,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 65
+        "y": 73
       },
       "id": 8,
       "options": {
@@ -1814,7 +1951,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 65
+        "y": 73
       },
       "id": 7,
       "options": {
@@ -1859,7 +1996,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 75
+        "y": 83
       },
       "id": 103,
       "panels": [],
@@ -1947,7 +2084,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 76
+        "y": 84
       },
       "id": 10,
       "options": {
@@ -2044,12 +2181,11 @@
         "type": "grafana-postgresql-datasource",
         "uid": "sesac_postgres_uid"
       },
-      "description": "지역별 총 매출을 지도에 표시",
+      "description": "지역별 총 매출 시각화",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "super-light-blue",
-            "mode": "fixed"
+            "mode": "thresholds"
           },
           "custom": {
             "hideFrom": {
@@ -2120,9 +2256,9 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 76
+        "y": 84
       },
-      "id": 11,
+      "id": 113,
       "options": {
         "basemap": {
           "config": {
@@ -2232,5 +2368,5 @@
   "timezone": "browser",
   "title": "Sales Analysis Dashboard",
   "uid": "adbzt8123213216",
-  "version": 7
+  "version": 29
 }
