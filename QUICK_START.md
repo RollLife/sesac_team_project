@@ -55,6 +55,24 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+## 시나리오 전환 (실시간)
+
+실행 중인 Producer의 시나리오를 실시간으로 변경할 수 있습니다:
+
+```bash
+# 별도 터미널 (또는 python-dev 컨테이너)에서 실행
+python apps/seeders/scenario_changer.py
+
+# 시나리오 번호 입력
+> 3    # 블랙프라이데이 대규모 세일
+> 21   # 트래픽 폭증 (스트레스 테스트, ~135 TPS)
+> 0    # 기본 패턴으로 복귀
+```
+
+- 1~20번 시나리오: 타이머 기반 자동 종료 (권장 시간 후 기본 패턴 복귀)
+- **21번 트래픽 폭증**: 자동 종료 없음, 사용자가 `0`번 입력 전까지 계속 실행
+- 모니터링: Kafka UI (Consumer Lag), Grafana (이상탐지/DB모니터링)
+
 ## 개발 환경 (python-dev 포함)
 
 ```bash
@@ -284,7 +302,7 @@ docker-compose up -d
 │   ├── product_generator.py     # 상품 생성
 │   ├── order_generator.py       # 주문 생성
 │   ├── purchase_propensity.py   # 구매 성향 점수 시스템
-│   └── scenario_engine.py       # 20가지 시나리오 정의
+│   └── scenario_engine.py       # 21가지 시나리오 정의
 └── scripts/                # 유틸리티 스크립트
     └── generate_historical_data.py  # 과거 1년치 데이터 생성
 ```

@@ -386,6 +386,23 @@ SCENARIOS: Dict[int, Dict[str, Any]] = {
         "category_weights": {cat: round(100 / len(AVAILABLE_CATEGORIES), 1) for cat in AVAILABLE_CATEGORIES},
         "quantity_weights": [70, 15, 8, 4, 3],
     },
+    21: {
+        "description": "트래픽 폭증 (스트레스 테스트)",
+        "order_volume": {"min": 300, "max": 800},
+        "interval": {"min": 0.01, "max": 0.05},
+        "peak_probability": 0.20,
+        "peak_volume": {"min": 800, "max": 1500},
+        "gender_weights": {"M": 50, "F": 50},
+        "age_group_weights": {"10대": 15, "20대": 25, "30대": 25, "40대": 20, "50대이상": 15},
+        "category_weights": {cat: round(100 / len(AVAILABLE_CATEGORIES), 1) for cat in AVAILABLE_CATEGORIES},
+        "quantity_weights": [30, 20, 18, 15, 17],
+        # 실시간 생성기 오버라이드 (이 키가 있으면 하드코딩 간격 대신 사용)
+        "realtime_interval": {"min": 0.1, "max": 0.3},
+        # 틱당 동시 주문자 수 (기본은 1명)
+        "burst_orders": {"min": 5, "max": 15},
+        # 자동 종료 없음 — 사용자가 직접 0번으로 복귀해야 함
+        "no_auto_revert": True,
+    },
 }
 
 DEFAULT_CONFIG = BASELINE_CONFIG
@@ -492,7 +509,7 @@ class ScenarioEngine:
             dur = estimate_duration_minutes(s)
             print(f"║  {num:>2}. {s['description']:<28} (~{dur}분)              ║")
         print("║  [트래픽 패턴]                                                 ║")
-        for num in [19, 20]:
+        for num in [19, 20, 21]:
             s = SCENARIOS[num]
             dur = estimate_duration_minutes(s)
             print(f"║  {num:>2}. {s['description']:<28} (~{dur}분)              ║")

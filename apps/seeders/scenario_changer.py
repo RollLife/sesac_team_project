@@ -29,6 +29,7 @@ SCENARIOS = {
     18: "가전 할인 행사 (빅세일)",
     19: "평일 심야 소량 주문",
     20: "전 카테고리 균등 대량 주문",
+    21: "트래픽 폭증 (스트레스 테스트)",
 }
 
 
@@ -70,8 +71,8 @@ def main():
             print("숫자를 입력하세요.")
             continue
 
-        if num < 0 or num > 20:
-            print("0~20 사이 번호를 입력하세요.")
+        if num < 0 or num > 21:
+            print("0~21 사이 번호를 입력하세요.")
             continue
 
         r.set('scenario:current', str(num))

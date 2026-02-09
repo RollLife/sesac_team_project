@@ -69,15 +69,23 @@ class RealtimeDataGenerator:
     def _apply_scenario(self, number: int):
         """시나리오를 적용하고 타이머를 시작한다."""
         config = self.scenario_engine.get_scenario(number)
-        duration_min = estimate_duration_minutes(config)
 
-        with self.lock:
-            self.scenario_config = config
-            self.scenario_number = number
-            self.scenario_start_time = time.time()
-            self.scenario_duration = duration_min * 60  # → 초
-
-        print(f"\n🔄 시나리오 {number} ({config['description']}) 적용됨 (⏱️ ~{duration_min}분)\n")
+        if config.get('no_auto_revert'):
+            # 자동 종료 없음 — 사용자가 직접 0번으로 복귀해야 함
+            with self.lock:
+                self.scenario_config = config
+                self.scenario_number = number
+                self.scenario_start_time = None
+                self.scenario_duration = None
+            print(f"\n🔄 시나리오 {number} ({config['description']}) 적용됨 (⚡ 수동 종료 대기)\n")
+        else:
+            duration_min = estimate_duration_minutes(config)
+            with self.lock:
+                self.scenario_config = config
+                self.scenario_number = number
+                self.scenario_start_time = time.time()
+                self.scenario_duration = duration_min * 60  # → 초
+            print(f"\n🔄 시나리오 {number} ({config['description']}) 적용됨 (⏱️ ~{duration_min}분)\n")
 
     def _revert_to_baseline(self):
         """기본 패턴으로 복귀 (시간대별 자동 시나리오 적용)"""
@@ -279,72 +287,84 @@ class RealtimeDataGenerator:
                     time.sleep(5)
                     continue
 
-                # 3. 성향 점수 기반 가중치로 고객 1명 선택 + 장바구니 구매
+                # 3. 성향 점수 기반 가중치로 고객 선택 + 장바구니 구매
+                #    burst_orders가 있으면 틱당 여러 명 동시 주문 (폭증 시나리오)
                 try:
                     users_only = [u for u, _ in propensity_pool]
 
-                    # 시나리오 가중치도 반영
-                    user = self._weighted_select_user(users_only, config)
+                    # 틱당 주문자 수 결정
+                    burst_cfg = config.get('burst_orders')
+                    if burst_cfg:
+                        num_buyers = random.randint(burst_cfg['min'], burst_cfg['max'])
+                    else:
+                        num_buyers = 1
 
-                    if not user:
-                        time.sleep(1)
-                        continue
+                    for _ in range(num_buyers):
+                        # 시나리오 가중치도 반영
+                        user = self._weighted_select_user(users_only, config)
 
-                    # 장바구니: 1~10개 상품을 한번에 구매
-                    cart_size = order_generator.get_cart_size()
-                    cart_timestamp = datetime.now()
-
-                    for _ in range(cart_size):
-                        product = self._weighted_select_product(product_pool, config)
-                        if not product:
+                        if not user:
                             continue
 
-                        order_data = order_generator.generate_order(user, product)
+                        # 장바구니: 1~10개 상품을 한번에 구매
+                        cart_size = order_generator.get_cart_size()
+                        cart_timestamp = datetime.now()
 
-                        # 역정규화 데이터 추가
-                        order_data['category'] = product.get('category', 'Unknown')
-                        user_address = user.get('address', '')
-                        order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
-                        order_data['user_gender'] = user.get('gender', 'Unknown')
-                        user_age = user.get('age')
-                        order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
-                        order_data['created_at'] = cart_timestamp
+                        for _ in range(cart_size):
+                            product = self._weighted_select_product(product_pool, config)
+                            if not product:
+                                continue
 
-                        # Kafka에 발행
-                        kafka_producer.send_event(
-                            topic=KAFKA_TOPIC_ORDERS,
-                            key=order_data['user_id'],
-                            data=order_data,
-                            event_type='order_created'
-                        )
+                            order_data = order_generator.generate_order(user, product)
 
-                        with self.lock:
-                            self.stats['orders_created'] += 1
+                            # 역정규화 데이터 추가
+                            order_data['category'] = product.get('category', 'Unknown')
+                            user_address = user.get('address', '')
+                            order_data['user_region'] = user_address.split()[0] if user_address else "Unknown"
+                            order_data['user_gender'] = user.get('gender', 'Unknown')
+                            user_age = user.get('age')
+                            order_data['user_age_group'] = f"{user_age // 10 * 10}대" if user_age else "Unknown"
+                            order_data['created_at'] = cart_timestamp
 
-                    # 로그 출력 (10건마다)
+                            # Kafka에 발행
+                            kafka_producer.send_event(
+                                topic=KAFKA_TOPIC_ORDERS,
+                                key=order_data['user_id'],
+                                data=order_data,
+                                event_type='order_created'
+                            )
+
+                            with self.lock:
+                                self.stats['orders_created'] += 1
+
+                    # 로그 출력 (50건마다)
                     with self.lock:
                         total_orders = self.stats['orders_created']
-                    if total_orders % 10 == 0:
+                    if total_orders % 50 == 0:
                         timestamp = datetime.now().strftime("%H:%M:%S")
                         elapsed = time.time() - self.stats['start_time'] if self.stats['start_time'] else 0
                         tps = total_orders / elapsed if elapsed > 0 else 0
                         scenario_desc = config.get("description", "기본")
-                        print(f"[{timestamp}] 🛒 주문 누적: {total_orders:,}건 "
-                              f"(장바구니 {cart_size}개) | "
+                        burst_label = f" x{num_buyers}명" if num_buyers > 1 else ""
+                        print(f"[{timestamp}] 🛒 주문 누적: {total_orders:,}건{burst_label} | "
                               f"TPS: {tps:.2f} | 📋 {scenario_desc}")
 
                 except Exception as e:
                     with self.lock:
                         self.stats['orders_failed'] += 1
 
-                # 4. 3~5초 대기
-                sleep_time = random.uniform(ORDER_INTERVAL_MIN, ORDER_INTERVAL_MAX)
-
-                # 시간대별 대기시간 보정 (새벽엔 더 느리게, 피크엔 더 빠르게)
-                hourly_mult = get_hourly_multiplier()
-                if hourly_mult > 0:
-                    sleep_time = sleep_time / hourly_mult
-                sleep_time = max(1.0, min(sleep_time, 30.0))  # 1초~30초 범위 제한
+                # 4. 대기 시간 결정
+                #    realtime_interval이 있으면 시나리오 오버라이드 사용 (폭증 모드)
+                rt_interval = config.get('realtime_interval')
+                if rt_interval:
+                    sleep_time = random.uniform(rt_interval['min'], rt_interval['max'])
+                else:
+                    sleep_time = random.uniform(ORDER_INTERVAL_MIN, ORDER_INTERVAL_MAX)
+                    # 시간대별 대기시간 보정 (새벽엔 더 느리게, 피크엔 더 빠르게)
+                    hourly_mult = get_hourly_multiplier()
+                    if hourly_mult > 0:
+                        sleep_time = sleep_time / hourly_mult
+                    sleep_time = max(1.0, min(sleep_time, 30.0))  # 1초~30초 범위 제한
 
                 time.sleep(sleep_time)
 
@@ -439,6 +459,9 @@ class RealtimeDataGenerator:
                     mins, secs = divmod(int(remaining), 60)
                     scenario_line = (f"   ⏱️ [{sc_num}] {config.get('description', '기본')} "
                                      f"— 남은시간 {mins}:{secs:02d}")
+                elif sc_num is not None:
+                    scenario_line = (f"   ⚡ [{sc_num}] {config.get('description', '기본')} "
+                                     f"— 수동 종료 대기")
                 else:
                     scenario_line = f"   📋 기본 패턴 (현실적 분포)"
 
