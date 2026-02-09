@@ -1,0 +1,1004 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "panels": [
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 50
+                            },
+                            {
+                                "color": "red",
+                                "value": 100
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT count(*) as \"활성 연결\" FROM pg_stat_activity WHERE state = 'active';",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔌 활성 DB 연결",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 5
+                            },
+                            {
+                                "color": "red",
+                                "value": 10
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "id": 2,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT count(*) as \"대기 쿼리\" FROM pg_stat_activity WHERE state = 'idle in transaction';",
+                    "refId": "A"
+                }
+            ],
+            "title": "⏳ 대기 중 트랜잭션",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "decbytes"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT pg_database_size(current_database()) as \"DB 크기\";",
+                    "refId": "A"
+                }
+            ],
+            "title": "💾 DB 크기",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "id": 4,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT count(*) as \"총 연결\" FROM pg_stat_activity;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📊 총 DB 연결",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 4
+            },
+            "id": 5,
+            "options": {
+                "displayLabels": [
+                    "name",
+                    "value"
+                ],
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "right",
+                    "showLegend": true
+                },
+                "pieType": "donut",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT state, count(*) as count FROM pg_stat_activity WHERE state IS NOT NULL GROUP BY state;",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔄 연결 상태 분포",
+            "type": "piechart"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 10000
+                            },
+                            {
+                                "color": "red",
+                                "value": 50000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "테이블 크기"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "decbytes"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 4
+            },
+            "id": 6,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "행 수"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  relname as \"테이블\",\n  n_live_tup as \"행 수\",\n  n_dead_tup as \"Dead 행\",\n  pg_total_relation_size(relid) as \"테이블 크기\",\n  last_vacuum as \"마지막 Vacuum\",\n  last_analyze as \"마지막 Analyze\"\nFROM pg_stat_user_tables\nORDER BY n_live_tup DESC;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📋 테이블별 상태",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 60
+                            }
+                        ]
+                    },
+                    "unit": "s"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 12
+            },
+            "id": 7,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "실행시간(초)"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  pid,\n  usename as \"유저\",\n  application_name as \"앱\",\n  state as \"상태\",\n  EXTRACT(EPOCH FROM (now() - query_start))::int as \"실행시간(초)\",\n  LEFT(query, 100) as \"쿼리 (앞 100자)\"\nFROM pg_stat_activity\nWHERE state != 'idle' AND query NOT LIKE '%pg_stat_activity%'\nORDER BY query_start;",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔥 현재 실행 중인 쿼리 (Slow Query 탐지)",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 20
+            },
+            "id": 8,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  relname as \"테이블\",\n  seq_scan as \"순차스캔\",\n  idx_scan as \"인덱스스캔\",\n  CASE WHEN seq_scan + idx_scan > 0 \n    THEN ROUND(idx_scan * 100.0 / (seq_scan + idx_scan), 1) \n    ELSE 0 \n  END as \"인덱스활용률(%)\",\n  n_tup_ins as \"INSERT\",\n  n_tup_upd as \"UPDATE\",\n  n_tup_del as \"DELETE\"\nFROM pg_stat_user_tables\nWHERE seq_scan + idx_scan > 0\nORDER BY seq_scan DESC;",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔍 테이블 스캔 통계 (인덱스 효율성)",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 20
+            },
+            "id": 9,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  indexrelname as \"인덱스\",\n  relname as \"테이블\",\n  idx_scan as \"사용횟수\",\n  pg_size_pretty(pg_relation_size(indexrelid)) as \"크기\"\nFROM pg_stat_user_indexes\nORDER BY idx_scan DESC\nLIMIT 20;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📈 인덱스 사용 현황",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 0.6,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 28
+            },
+            "id": 10,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  date_trunc('minute', created_datetime) as time,\n  count(*) as \"분당 주문\"\nFROM orders\nWHERE created_datetime >= NOW() - INTERVAL '1 hour'\nGROUP BY 1\nORDER BY 1;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📊 분당 주문 처리량 (Throughput)",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 0.6,
+                        "drawStyle": "bars",
+                        "fillOpacity": 80,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 28
+            },
+            "id": 11,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  date_trunc('minute', created_datetime) as time,\n  count(*) as \"신규유저\"\nFROM users\nWHERE created_datetime >= NOW() - INTERVAL '1 hour'\nGROUP BY 1\nORDER BY 1;",
+                    "refId": "A"
+                }
+            ],
+            "title": "👤 분당 신규 유저",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1000000000
+                            },
+                            {
+                                "color": "red",
+                                "value": 10000000000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 8,
+                "x": 0,
+                "y": 36
+            },
+            "id": 12,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT SUM(total_amount) as \"시간당매출\" FROM orders WHERE created_at >= NOW() - INTERVAL '1 hour';",
+                    "refId": "A"
+                }
+            ],
+            "title": "💰 최근 1시간 매출",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 8,
+                "x": 8,
+                "y": 36
+            },
+            "id": 13,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT COUNT(DISTINCT user_id) as \"활성유저\" FROM orders WHERE created_at >= NOW() - INTERVAL '1 hour';",
+                    "refId": "A"
+                }
+            ],
+            "title": "👥 최근 1시간 활성 유저",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1000000
+                            },
+                            {
+                                "color": "red",
+                                "value": 10000000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 8,
+                "x": 16,
+                "y": 36
+            },
+            "id": 14,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  ROUND(SUM(total_amount) / NULLIF(COUNT(DISTINCT user_id), 0)) as \"유저당매출\"\nFROM orders \nWHERE created_at >= NOW() - INTERVAL '1 hour';",
+                    "refId": "A"
+                }
+            ],
+            "title": "⚠️ 유저당 평균 매출 (이상탐지)",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 24,
+                "x": 0,
+                "y": 42
+            },
+            "id": 15,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  '유저수' as \"항목\", COUNT(*)::text as \"값\" FROM users\nUNION ALL\nSELECT '상품수', COUNT(*)::text FROM products\nUNION ALL\nSELECT '주문수', COUNT(*)::text FROM orders\nUNION ALL  \nSELECT '평균 주문금액', ROUND(AVG(total_amount))::text FROM orders\nUNION ALL\nSELECT '최대 주문금액', MAX(total_amount)::text FROM orders\nUNION ALL\nSELECT '유저당 평균 주문수', ROUND(COUNT(*)::numeric / NULLIF((SELECT COUNT(*) FROM users), 0), 2)::text FROM orders;",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔍 데이터 이상 진단",
+            "type": "table"
+        }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 39,
+    "tags": [
+        "db",
+        "monitoring",
+        "postgresql"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "Asia/Seoul",
+    "title": "📊 DB & 시스템 모니터링",
+    "uid": "db-monitoring",
+    "version": 1,
+    "weekStart": ""
+}

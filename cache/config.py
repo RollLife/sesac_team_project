@@ -21,9 +21,6 @@ CACHE_CONFIG = {
     # 한 번에 가져올 데이터 개수
     'batch_size': int(os.getenv('CACHE_BATCH_SIZE', 1000)),
 
-    # 신규 데이터 vs 기존 데이터 비율 (기아현상 방지)
-    'new_data_ratio': float(os.getenv('CACHE_NEW_DATA_RATIO', 0.5)),
-
     # 캐시 키 이름
     'users_key': 'cache:users',
     'products_key': 'cache:products',

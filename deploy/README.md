@@ -41,7 +41,7 @@ make up
 make start-all
 ```
 
-## 서비스 구성 (20개 컨테이너)
+## 서비스 구성 (21개 컨테이너)
 
 ### 인프라 (7개)
 - `postgres`: PostgreSQL 데이터베이스
@@ -50,14 +50,15 @@ make start-all
 - `redis`: Redis 캐시 서버
 - `adminer`: DB 관리 UI
 
-### 캐시 서비스 (2개)
-- `cache-worker`: Redis 캐시 갱신 (Aging 기법, 50초마다)
+### 캐시 및 배치 서비스 (3개)
+- `cache-worker`: Redis 캐시 갱신 (구매이력/미구매 분리 적재, 50초마다)
 - `redis-monitor`: Redis 실시간 모니터링
+- `grade-updater`: 고객 등급 배치 갱신 (10분 주기)
 
 ### 데이터 생성 (3개)
 - `initial-seeder`: 초기 데이터 생성 (one-time)
-- `producer`: 실시간 주문/상품 생성 (Redis에서 조회)
-- `user-seeder`: 실시간 고객 생성
+- `producer`: 실시간 주문/상품 생성 (구매 성향 기반)
+- `user-seeder`: 실시간 고객 생성 (S커브 감쇄)
 
 ### Consumer (9개)
 - `user-consumer-1/2/3`: 유저 토픽 컨슈머
@@ -67,19 +68,22 @@ make start-all
 ### 개발 (1개, 선택적)
 - `python-dev`: 개발 컨테이너 (dev 프로파일)
 
-## Redis 캐싱 + Aging 기법
+## Redis 캐싱 + 구매이력/미구매 분리 적재
 
 ### 아키텍처
 ```
 [PostgreSQL] → [Cache-Worker] → [Redis] → [Producer] → [Kafka]
-                 (50초마다)     (1000건)   (랜덤조회)
+                 (50초마다)     (1000건)  (성향기반선택)
 ```
+
+### 분리 적재 방식
+- **고객**: 구매이력 600명 (last_ordered_at ASC) + 미구매 400명 (created_at DESC)
+- **상품**: 인기상품 700개 (order_count DESC) + 신상품 300개 (created_at DESC)
 
 ### 환경변수 (cache-worker)
 ```yaml
 CACHE_REFRESH_INTERVAL: 50     # 캐시 갱신 주기 (초)
 CACHE_BATCH_SIZE: 1000         # 캐시 배치 크기
-CACHE_NEW_DATA_RATIO: 0.5      # 신규 데이터 비율 (50%)
 ```
 
 ### 성능 향상

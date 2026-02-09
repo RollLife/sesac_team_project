@@ -1,282 +1,360 @@
 {
-  "common_prefixes": ["[단독구성]", "[방송최저가]", "[본사직영]", "[1+1]", "[체험분증정]",
-  "[MD픽]", "[한정수량]", "[쿠폰가]", "[로켓배송]", "[역대급혜택]", "[오늘만특가]"],
-  "common_suffixes": ["무료배송", "당일출고", "카드10%할인", "사은품증정", "익일배송", "최대혜택", "정품보장", "리뷰약속시사은품"],
-  "common_adjectives": ["2025년형", "인기", "베스트셀러", "한정판", "MD추천", "SNS화제", "품절임박", "스테디셀러"],
+  "common_prefixes": ["[단독구성]",
+    "[방송최저가]",
+    "[본사직영]",
+    "[1+1]",
+    "[MD픽]",
+    "[한정수량]",
+    "[쿠폰가]",
+    "[로켓배송]",
+    "[역대급혜택]",
+    "[오늘만특가]"
+  ],
+  "common_suffixes": ["무료배송","당일출고","카드10%할인","사은품증정","익일배송","최대혜택","정품보장","리뷰약속시사은품"],
+  "common_adjectives": ["2025년형","인기","베스트셀러","한정판","MD추천","SNS화제","품절임박","스테디셀러"],
   "categories": {
-    "패션_SS(봄여름)": {
+    "SS(봄여름)": {
       "price_min": 15000,
       "price_max": 150000,
-      "templates": ["{brand} {season} {adj} {noun} {color} {suffix}",
-      "{brand} {material} {noun} 1+1 특가",
-      "[쿨링] {brand} {noun} ({gender})"],
+      "order_frequency": 12,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [70, 20, 10],
+      "templates": ["{brand} {season} {adj} {noun} {color} {suffix}","{brand} {material} {noun} 1+1 특가","[쿨링] {brand} {noun} ({gender})"
+      ],
       "keywords": {
-        "brand": ["나이키", "아디다스", "폴로", "지오다노", "탑텐", "스파오", "파타고니아", "메종키츠네"],
-        "season": ["25SS", "여름 신상", "봄 신상"],
-        "adj": ["링클프리", "와이드핏", "쿨링", "초경량", "통기성좋은", "아이스"],
-        "noun": ["반팔티", "린넨셔츠", "조거팬츠", "반바지", "피케셔츠", "원피스", "슬랙스"],
-        "material": ["린넨", "매쉬", "수피마코튼", "시어서커", "냉감소재"],
-        "color": ["화이트", "스카이블루", "베이지", "네이비", "파스텔톤"],
-        "gender": ["남성용", "여성용", "공용"],
-        "suffix": ["무료배송", "무료반품", "당일출고"]
+        "brand": ["나이키","아디다스","폴로","지오다노","탑텐","스파오","파타고니아","메종키츠네"],
+        "season": ["25SS","여름 신상","봄 신상"],
+        "adj": ["링클프리","와이드핏","쿨링","초경량","통기성좋은","아이스"],
+        "noun": ["반팔티","린넨셔츠","조거팬츠","반바지","피케셔츠","원피스","슬랙스"],
+        "material": ["린넨","매쉬","수피마코튼","시어서커","냉감소재"],
+        "color": ["화이트","스카이블루","베이지","네이비","파스텔톤"],
+        "gender": ["남성용","여성용","공용"],
+        "suffix": ["무료배송","무료반품","당일출고"]
       }
     },
-    "패션_FW(가을겨울)": {
+    "FW(가을겨울)": {
       "price_min": 30000,
       "price_max": 800000,
-      "templates": ["{brand} {season} {adj} {noun} {color} {suffix}",
-      "[역대급한파] {brand} {material} {noun} 한정수량",
-      "{brand} {fit} {noun} ({material})"],
+      "order_frequency": 10,
+      "quantity_options": [1, 2],
+      "quantity_weights": [80, 20],
+      "templates": ["{brand} {season} {adj} {noun} {color} {suffix}","[역대급한파] {brand} {material} {noun} 한정수량",
+        "{brand} {fit} {noun} ({material})"
+      ],
       "keywords": {
-        "brand": ["노스페이스", "나이키", "디스커버리", "내셔널지오그래픽", "폴로", "몽클레어"],
-        "season": ["25FW", "겨울 신상", "가을 신상", "한파대비"],
-        "adj": ["헤비", "경량", "방풍", "발열", "보온성", "기모안감"],
-        "noun": ["롱패딩", "숏패딩", "후리스", "맨투맨", "후드티", "코트", "니트", "경량조끼"],
-        "material": ["구스다운", "덕다운", "캐시미어", "울 100%", "코듀로이", "플리스"],
-        "fit": ["오버핏", "스탠다드핏"],
-        "color": ["블랙", "차콜", "그레이", "카키", "브라운"],
-        "suffix": ["무료배송", "당일출고", "옷걸이증정"]
+        "brand": ["노스페이스","나이키","디스커버리","내셔널지오그래픽","폴로","몽클레어"],
+        "season": ["25FW","겨울 신상","가을 신상","한파대비"],
+        "adj": ["헤비","경량","방풍","발열","보온성","기모안감"],
+        "noun": ["롱패딩","숏패딩","후리스","맨투맨","후드티","코트","니트","경량조끼"],
+        "material": ["구스다운","덕다운","캐시미어","울 100%","코듀로이","플리스"],
+        "fit": ["오버핏","스탠다드핏"],
+        "color": ["블랙","차콜","그레이","카키","브라운"],
+        "suffix": ["무료배송","당일출고","옷걸이증정"]
       }
     },
-    "뷰티_스킨케어": {
+    "스킨케어": {
       "price_min": 10000,
       "price_max": 150000,
-      "templates": ["{brand} {adj} {noun} {volume} {suffix}",
-      "{brand} {line} {noun} 1+1 기획",
-      "[수분폭탄] {brand} {ingredient} {noun}"],
+      "order_frequency": 18,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [45, 30, 18, 7],
+      "templates": ["{brand} {adj} {noun} {volume} {suffix}","{brand} {line} {noun} 1+1 기획","[수분폭탄] {brand} {ingredient} {noun}"
+      ],
       "keywords": {
-        "brand": ["이니스프리", "닥터지", "라운드랩", "토리든", "아누아", "피지오겔"],
-        "line": ["그린티", "시카", "자작나무", "히알루론", "어성초"],
-        "ingredient": ["히알루론산", "티트리", "세라마이드", "판테놀", "알로에"],
-        "noun": ["토너", "로션", "수분크림", "클렌징폼", "마스크팩", "선크림"],
-        "adj": ["진정", "순한", "저자극", "수분가득", "트러블케어", "쿨링"],
-        "volume": ["300ml", "500ml", "대용량", "1+1"],
-        "suffix": ["화장솜증정", "무료배송", "체험분증정"]
+        "brand": ["이니스프리","닥터지","라운드랩","토리든","아누아","피지오겔"],
+        "line": ["그린티","시카","자작나무","히알루론","어성초"],
+        "ingredient": ["히알루론산","티트리","세라마이드","판테놀","알로에"],
+        "noun": ["토너","로션","수분크림","클렌징폼","마스크팩","선크림"],
+        "adj": ["진정","순한","저자극","수분가득","트러블케어","쿨링"],
+        "volume": ["300ml","500ml","대용량"],
+        "suffix": ["화장솜증정","무료배송","체험분증정"]
       }
     },
-    "뷰티_기능성(안티에이징)": {
+    "기능성(안티에이징)": {
       "price_min": 50000,
       "price_max": 500000,
-      "templates": ["{brand} {line} {adj} {noun} {volume} {suffix}",
-      "[명절선물] {brand} {ingredient} {noun} 세트",
-      "{celebrity} 모델 {brand} {noun}"],
+      "order_frequency": 8,
+      "quantity_options": [1, 2],
+      "quantity_weights": [85, 15],
+      "templates": ["{brand} {line} {adj} {noun} {volume} {suffix}","[명절선물] {brand} {ingredient} {noun} 세트",
+        "{celebrity} 모델 {brand} {noun}"
+      ],
       "keywords": {
-        "brand": ["설화수", "헤라", "에스티로더", "아이오페", "SK2", "랑콤"],
-        "line": ["자음", "갈색병", "슈퍼바이탈", "제니피끄", "피테라"],
-        "ingredient": ["레티놀", "콜라겐", "펩타이드", "이데베논", "PDRN"],
-        "noun": ["에센스", "앰플", "아이크림", "영양크림", "리프팅크림"],
-        "adj": ["주름개선", "미백", "고영양", "탄력", "광채", "안티에이징"],
-        "volume": ["30ml", "50ml", "세트"],
-        "celebrity": ["제니", "송혜교", "김태희"],
-        "suffix": ["쇼핑백증정", "정품보장", "샘플5종증정"]
+        "brand": ["설화수","헤라","에스티로더","아이오페","SK2","랑콤"],
+        "line": ["자음","갈색병","슈퍼바이탈","제니피끄","피테라"],
+        "ingredient": ["레티놀","콜라겐","펩타이드","이데베논","PDRN"],
+        "noun": ["에센스","앰플","아이크림","영양크림","리프팅크림"],
+        "adj": ["주름개선","미백","고영양","탄력","광채","안티에이징"],
+        "volume": ["30ml","50ml","세트"],
+        "celebrity": ["제니","송혜교","김태희"],
+        "suffix": ["쇼핑백증정","정품보장","샘플5종증정"]
       }
     },
-    "식품_신선(과일/채소)": {
+    "신선(과일/채소)": {
       "price_min": 10000,
       "price_max": 80000,
-      "templates": ["{location} {adj} {noun} {weight} {suffix}",
-      "[산지직송] {location} {adj} {noun} ({weight})",
-      "[제철] {noun} {weight} 못난이 특가"],
+      "order_frequency": 20,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [55, 30, 15],
+      "templates": ["{location} {adj} {noun} {weight} {suffix}","[산지직송] {location} {adj} {noun} ({weight})",
+        "[제철] {noun} {weight} 못난이 특가"
+      ],
       "keywords": {
-        "location": ["성주", "나주", "제주", "청송", "영주", "논산"],
-        "adj": ["고당도", "꿀", "아삭한", "GAP인증", "프리미엄", "새벽수확"],
-        "noun": ["참외", "사과", "배", "딸기", "샤인머스캣", "감귤", "고구마"],
-        "weight": ["2kg", "3kg", "5kg", "10kg"],
-        "suffix": ["무료배송", "신선보장", "터지면환불"]
+        "location": ["성주","나주","제주","청송","영주","논산"],
+        "adj": ["고당도","꿀","아삭한","GAP인증","프리미엄","새벽수확"],
+        "noun": ["참외","사과","배","딸기","샤인머스캣","감귤","고구마"],
+        "weight": ["2kg","3kg","5kg","10kg"],
+        "suffix": ["무료배송","신선보장","터지면환불"]
       }
     },
-    "식품_육류/가공": {
+    "육류/가공": {
       "price_min": 20000,
       "price_max": 200000,
-      "templates": ["{brand} {adj} {noun} {weight} {suffix}",
-      "[캠핑추천] {noun} {weight} 모듬세트",
-      "{grade} {location} {noun} 선물세트"],
+      "order_frequency": 16,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [50, 35, 15],
+      "templates": ["{brand} {adj} {noun} {weight} {suffix}","[캠핑추천] {noun} {weight} 모듬세트",
+        "{grade} {location} {noun} 선물세트"
+      ],
       "keywords": {
-        "brand": ["하림", "도드람", "농협안심", "횡성축협", "비비고"],
-        "location": ["횡성", "이천", "제주"],
-        "adj": ["숙성", "무항생제", "HACCP인증", "칼집", "냉장"],
-        "noun": ["삼겹살", "목살", "한우 등심", "안심", "닭가슴살", "양념갈비"],
-        "grade": ["1++등급", "1등급", "프리미엄"],
-        "weight": ["500g", "1kg", "600g x 3팩"],
-        "suffix": ["아이스박스포장", "소스증정", "당일발송"]
+        "brand": ["하림","도드람","농협안심","횡성축협","비비고"],
+        "location": ["횡성","이천","제주"],
+        "adj": ["숙성","무항생제","HACCP인증","칼집","냉장"],
+        "noun": ["삼겹살","목살","한우 등심","안심","닭가슴살","양념갈비"],
+        "grade": ["1++등급","1등급","프리미엄"],
+        "weight": ["500g","1kg","600g x 3팩"],
+        "suffix": ["아이스박스포장","소스증정","당일발송"]
       }
     },
-    "가전_생활(백색가전)": {
+    "생활가전": {
       "price_min": 500000,
       "price_max": 5000000,
-      "templates": ["{brand} {year}년형 {adj} {noun} ({model}) {suffix}",
-      "[웨딩혼수] {brand} {adj} {noun} 패키지",
-      "{brand} {spec} {noun} + 사은품"],
+      "order_frequency": 2,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [60, 20, 10, 10],
+      "templates": ["{brand} {year}년형 {adj} {noun} ({model}) {suffix}","[웨딩혼수] {brand} {adj} {noun} 패키지",
+        "{brand} {spec} {noun} + 사은품"
+      ],
       "keywords": {
-        "brand": ["삼성", "LG", "발뮤다", "다이슨", "쿠쿠", "로보락"],
-        "noun": ["냉장고", "세탁기", "건조기", "에어드레서", "식기세척기", "로봇청소기", "공기청정기"],
-        "spec": ["1등급", "대용량", "올인원", "AI기능", "UV살균"],
-        "adj": ["비스포크", "오브제", "스팀", "빌트인", "저소음"],
-        "model": ["RF85", "WD23", "S10"],
-        "year": ["2025", "2026"],
-        "suffix": ["방문설치", "폐가전수거", "공식인증점", "무상AS 3년"]
+        "brand": ["삼성","LG","발뮤다","다이슨","쿠쿠","로보락"],
+        "noun": ["냉장고","세탁기","건조기","에어드레서","식기세척기","로봇청소기","공기청정기"],
+        "spec": ["1등급","대용량","올인원","AI기능","UV살균"],
+        "adj": ["비스포크","오브제","스팀","빌트인","저소음"],
+        "model": ["RF85","WD23","S10"],
+        "year": ["2025","2026"],
+        "suffix": ["방문설치","폐가전수거","공식인증점","무상AS 3년"]
       }
     },
-    "가전_IT/게이밍": {
+    "IT/게이밍": {
       "price_min": 100000,
       "price_max": 3000000,
-      "templates": ["{brand} {spec} {noun} {model} {suffix}",
-      "[게이밍] {brand} {adj} {noun} ({refresh_rate})",
-      "{brand} {year} {noun} 사전예약"],
+      "order_frequency": 4,
+      "quantity_options": [1, 2],
+      "quantity_weights": [92, 8],
+      "templates": ["{brand} {spec} {noun} {model} {suffix}","[게이밍] {brand} {adj} {noun} ({refresh_rate})",
+        "{brand} {year} {noun} 사전예약"
+      ],
       "keywords": {
-        "brand": ["삼성", "LG", "애플", "로지텍", "레이저", "ASUS", "MSI"],
-        "noun": ["노트북", "게이밍 모니터", "기계식 키보드", "마우스", "아이패드", "태블릿"],
-        "spec": ["RTX4060", "i9-14세대", "M3칩", "32GB RAM", "1TB"],
-        "adj": ["초경량", "고성능", "커브드", "무선", "블루투스"],
-        "refresh_rate": ["144Hz", "240Hz", "4K", "OLED"],
-        "model": ["그램", "맥북에어", "G-PRO", "오디세이"],
-        "year": ["2025", "2026"],
-        "suffix": ["로켓배송", "파우치증정", "정품등록"]
+        "brand": ["삼성","LG","애플","로지텍","레이저","ASUS","MSI"],
+        "noun": ["노트북","게이밍 모니터","기계식 키보드","마우스","아이패드","태블릿"],
+        "spec": ["RTX4060","i9-14세대","M3칩","32GB RAM","1TB"],
+        "adj": ["초경량","고성능","커브드","무선","블루투스"],
+        "refresh_rate": ["144Hz","240Hz","4K","OLED"],
+        "model": ["그램","맥북에어","G-PRO","오디세이"],
+        "year": ["2025","2026"],
+        "suffix": ["로켓배송","파우치증정","정품등록"]
       }
     },
-    "생활_세제/위생": {
+    "세제/위생": {
       "price_min": 5000,
       "price_max": 50000,
-      "templates": ["{brand} {adj} {noun} {capacity} x {count}개 {suffix}",
-      "{brand} {noun} 리필 {capacity} {count}팩",
-      "[쟁여두기] {brand} {noun} 대용량"],
+      "order_frequency": 22,
+      "quantity_options": [1, 2, 3, 4, 5, 6],
+      "quantity_weights": [15, 25, 25, 18, 12, 5],
+      "templates": ["{brand} {adj} {noun} {capacity} x {count}개 {suffix}","{brand} {noun} 리필 {capacity} {count}팩","[쟁여두기] {brand} {noun} 대용량"
+      ],
       "keywords": {
-        "brand": ["다우니", "퍼실", "피죤", "유한락스", "페브리즈", "크리넥스"],
-        "adj": ["실내건조", "초고농축", "향기좋은", "강력세척", "진드기제거"],
-        "noun": ["세탁세제", "섬유유연제", "주방세제", "세정제", "물티슈"],
-        "capacity": ["2.5L", "3L", "1L", "100매"],
-        "count": ["3", "4", "6"],
-        "suffix": ["무료배송", "당일출고", "박스포장"]
+        "brand": ["다우니","퍼실","피죤","유한락스","페브리즈","크리넥스"],
+        "adj": ["실내건조","초고농축","향기좋은","강력세척","진드기제거"],
+        "noun": ["세탁세제","섬유유연제","주방세제","세정제","물티슈"],
+        "capacity": ["2.5L","3L","1L","100매"],
+        "count": ["3","4","6"],
+        "suffix": ["무료배송","당일출고","박스포장"]
       }
     },
-    "생활_화지/제지": {
+    "화지/제지": {
       "price_min": 10000,
       "price_max": 40000,
-      "templates": ["{brand} {adj} {noun} {spec} {count}롤 {suffix}",
-      "[집들이선물] {brand} {noun} {count}롤 x 2팩"],
+      "order_frequency": 20,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [20, 35, 30, 15],
+      "templates": ["{brand} {adj} {noun} {spec} {count}롤 {suffix}","[집들이선물] {brand} {noun} {count}롤 x 2팩"
+      ],
       "keywords": {
-        "brand": ["크리넥스", "코디", "깨끗한나라", "잘풀리는집"],
-        "adj": ["도톰한", "먼지없는", "순수천연펄프", "무형광"],
-        "noun": ["두루마리 휴지", "키친타올", "미용티슈"],
-        "spec": ["3겹", "4겹", "엠보싱"],
-        "count": ["30", "24", "12"],
-        "suffix": ["무료배송", "빠른배송"]
+        "brand": ["크리넥스","코디","깨끗한나라","잘풀리는집"],
+        "adj": ["도톰한","먼지없는","순수천연펄프","무형광"],
+        "noun": ["두루마리 휴지","키친타올","미용티슈"],
+        "spec": ["3겹","4겹","엠보싱"],
+        "count": ["30","24","12"],
+        "suffix": ["무료배송","빠른배송"]
       }
     },
-    "건강식품_전통": {
+    "건강식품": {
       "price_min": 30000,
       "price_max": 500000,
-      "templates": ["{celebrity}의 {process} {ingredient} {noun} {amount}",
-      "[효도선물] {brand} {adj} {ingredient} {noun} ({suffix})",
-      "{brand} {process} {ingredient} {noun} {amount} {suffix}"],
+      "order_frequency": 10,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [55, 30, 15],
+      "templates": ["{celebrity}의 {process} {ingredient} {noun} {amount}","[효도선물] {brand} {adj} {ingredient} {noun} ({suffix})",
+        "{brand} {process} {ingredient} {noun} {amount} {suffix}"
+      ],
       "keywords": {
-        "brand": ["정관장", "한삼인", "농협", "종근당건강", "광동"],
-        "celebrity": ["이시형 박사", "이경제 원장", "김태희"],
-        "ingredient": ["홍삼", "녹용", "침향", "흑마늘", "도라지배즙"],
-        "noun": ["진액", "환", "스틱", "골드", "로얄", "순액"],
-        "adj": ["활력", "프리미엄", "6년근", "면역", "기력회복", "진한"],
-        "amount": ["30포", "60포", "100포", "3박스"],
-        "process": ["3단계 발효", "전통방식", "구증구포", "저온추출", "숙성"],
-        "suffix": ["쇼핑백증정", "정품보장", "무료배송"]
+        "brand": ["정관장","한삼인","농협","종근당건강","광동"],
+        "celebrity": ["이시형 박사","이경제 원장","김태희"],
+        "ingredient": ["홍삼","녹용","침향","흑마늘","도라지배즙"],
+        "noun": ["진액","환","스틱","정","앰플","농축액"],
+        "adj": ["활력","프리미엄","6년근","면역","기력회복","진한"],
+        "amount": ["30포","60포","100포","3박스"],
+        "process": ["3단계 발효","전통방식","구증구포","저온추출","숙성"],
+        "suffix": ["쇼핑백증정","정품보장","무료배송"]
       }
     },
-    "건강식품_영양제": {
+    "영양제": {
       "price_min": 15000,
       "price_max": 150000,
-      "templates": ["{brand} {adj} {ingredient} {noun} {duration}분",
-      "{brand} {ingredient} {noun} {amount} 1+1 기획",
-      "{celebrity} 모델 {brand} {ingredient} {noun} {suffix}"],
+      "order_frequency": 14,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [40, 35, 18, 7],
+      "templates": ["{brand} {adj} {ingredient} {noun} {amount}","{brand} {ingredient} {noun} {amount} 1+1 기획","{celebrity} 모델 {brand} {ingredient} {noun} {suffix}"],
       "keywords": {
-        "brand": ["고려은단", "뉴트리원", "덴프스", "에스더포뮬러", "종근당", "얼라이브"],
-        "celebrity": ["남궁민", "전지현", "유재석", "손흥민"],
-        "ingredient": ["루테인", "오메가3", "비타민D", "비타민C", "저분자 콜라겐", "LGG 유산균", "밀크씨슬"],
-        "noun": ["캡슐", "정", "구미", "타블렛", "분말"],
-        "adj": ["고함량", "식물성", "초임계 알티지", "흡수율 높은", "올인원"],
-        "amount": ["3개월분", "6개월분", "1+1", "180정"],
-        "duration": ["3개월", "6개월", "12개월"],
-        "suffix": ["특가판매", "무료배송", "휴대용케이스증정"]
+        "brand": ["고려은단","뉴트리원","덴프스","에스더포뮬러","종근당","얼라이브"],
+        "celebrity": ["남궁민","전지현","유재석","손흥민"],
+        "ingredient": ["루테인","오메가3","비타민D","비타민C","저분자 콜라겐","LGG 유산균","밀크씨슬"],
+        "noun": ["캡슐","정","구미","타블렛","분말"],
+        "adj": ["고함량","식물성","초임계 알티지","흡수율 높은","올인원"],
+        "amount": ["3개월분","6개월분","180정"],
+        "duration": ["3개월","6개월","12개월"],
+        "suffix": ["특가판매","무료배송","휴대용케이스증정"]
       }
     },
-    "가구_대형(소파/침대)": {
+    "소파/침대": {
       "price_min": 300000,
       "price_max": 3000000,
-      "templates": ["{brand} {material} {noun} {size} {suffix}",
-      "[오늘의집] {brand} {adj} {noun} + 스툴포함",
-      "{brand} {adj} {noun} 풀세트"],
+      "order_frequency": 2,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [60, 20, 10, 10],
+      "templates": ["{brand} {material} {noun} {size} {suffix}","[오늘의집] {brand} {adj} {noun} + 스툴포함",
+        "{brand} {adj} {noun} 풀세트"
+      ],
       "keywords": {
-        "brand": ["한샘", "리바트", "까사미아", "에이스침대", "시몬스", "자코모"],
-        "material": ["이태리 천연가죽", "아쿠아텍스", "원목", "세라믹"],
-        "noun": ["소파", "침대 프레임", "식탁", "매트리스", "거실장"],
-        "adj": ["푹신한", "방수", "호텔식", "모듈형", "리클라이너"],
-        "size": ["4인용", "6인용", "킹사이즈", "퀸사이즈"],
-        "suffix": ["방문설치", "폐가구수거", "지정일배송"]
+        "brand": ["한샘","리바트","까사미아","에이스침대","시몬스","자코모"],
+        "material": ["이태리 천연가죽","아쿠아텍스","패브릭","천연라텍스"],
+        "noun": ["소파","침대 프레임","식탁","매트리스","거실장"],
+        "adj": ["푹신한","방수","호텔식","모듈형","리클라이너"],
+        "size": ["4인용","6인용","킹사이즈","퀸사이즈"],
+        "suffix": ["방문설치","폐가구수거","지정일배송"]
       }
     },
-    "가구_사무/학생": {
+    "사무/학생": {
       "price_min": 50000,
       "price_max": 500000,
-      "templates": ["{brand} {adj} {noun} ({model}) {suffix}",
-      "[학생방] {brand} {noun} + {opt} 세트"],
+      "order_frequency": 5,
+      "quantity_options": [1, 2],
+      "quantity_weights": [90, 10],
+      "templates": ["{brand} {adj} {noun} ({model}) {suffix}","[학생방] {brand} {noun} + {opt} 세트"
+      ],
       "keywords": {
-        "brand": ["시디즈", "데스커", "일룸", "듀오백"],
-        "noun": ["메쉬 의자", "컴퓨터 책상", "독서실 책상", "책장", "서랍장"],
-        "adj": ["인체공학적", "높이조절", "허리가 편한", "집중력 향상"],
-        "model": ["T50", "T80", "아이링고"],
-        "opt": ["LED조명", "멀티탭", "가방걸이"],
-        "suffix": ["무료배송", "자가설치", "DIY"]
+        "brand": ["시디즈","데스커","일룸","듀오백"],
+        "noun": ["메쉬 의자","컴퓨터 책상","독서실 책상","책장","서랍장"],
+        "adj": ["인체공학적","높이조절","허리가 편한","집중력 향상"],
+        "model": ["T50","T80","아이링고"],
+        "opt": ["LED조명","멀티탭","가방걸이"],
+        "suffix": ["무료배송","자가설치","DIY"]
       }
     },
-    "스포츠_골프": {
+    "골프": {
       "price_min": 50000,
       "price_max": 1500000,
-      "templates": ["{brand} {year} {spec} {noun} ({gender})", "{brand} {adj} {noun} 풀세트 {suffix}"],
+      "order_frequency": 3,
+      "quantity_options": [1, 2],
+      "quantity_weights": [88, 12],
+      "templates": ["{brand} {year} {spec} {noun} ({gender})","{brand} {adj} {noun} 풀세트 {suffix}"],
       "keywords": {
-        "brand": ["타이틀리스트", "테일러메이드", "핑", "캘러웨이", "PXG"],
-        "noun": ["드라이버", "아이언 세트", "퍼터", "캐디백", "골프화"],
-        "spec": ["카본 페이스", "단조", "말렛형", "보아 시스템"],
-        "adj": ["비거리 향상", "관용성 좋은", "투어용", "초경량"],
-        "year": ["2025", "2026"],
-        "gender": ["남성용", "여성용"],
-        "suffix": ["정품보장", "AS가능", "사은품증정"]
+        "brand": ["타이틀리스트","테일러메이드","핑","캘러웨이","PXG"],
+        "noun": ["드라이버","아이언 세트","퍼터","캐디백","골프화"],
+        "spec": ["카본 페이스","단조","말렛형","보아 시스템"],
+        "adj": ["비거리 향상","관용성 좋은","투어용","초경량"],
+        "year": ["2025","2026"],
+        "gender": ["남성용","여성용"],
+        "suffix": ["정품보장","AS가능","사은품증정"]
       }
     },
-    "스포츠_캠핑": {
+    "캠핑": {
       "price_min": 20000,
       "price_max": 2000000,
-      "templates": ["{brand} {adj} {noun} {size} {suffix}", "[감성캠핑] {brand} {noun} ({color})"],
+      "order_frequency": 4,
+      "quantity_options": [1, 2],
+      "quantity_weights": [85, 15],
+      "templates": ["{brand} {adj} {noun} {size} {suffix}","[감성캠핑] {brand} {noun} ({color})"
+      ],
       "keywords": {
-        "brand": ["스노우피크", "콜맨", "코베아", "헬리녹스", "노르디스크"],
-        "noun": ["리빙쉘 텐트", "타프", "캠핑의자", "야전침대", "랜턴", "화로대"],
-        "adj": ["원터치", "방수", "초경량", "감성", "면혼방"],
-        "size": ["4인용", "대형", "패밀리사이즈"],
-        "color": ["카키", "탄", "아이보리"],
-        "suffix": ["무료배송", "가방증정", "당일발송"]
+        "brand": ["스노우피크","콜맨","코베아","헬리녹스","노르디스크"],
+        "noun": ["리빙쉘 텐트","타프","캠핑의자","야전침대","랜턴","화로대"],
+        "adj": ["원터치","방수","초경량","감성","면혼방"],
+        "size": ["4인용","대형","패밀리사이즈"],
+        "color": ["카키","탄","아이보리"],
+        "suffix": ["무료배송","가방증정","당일발송"]
       }
     },
-    "여행_항공/숙박": {
+    "항공": {
       "price_min": 50000,
-      "price_max": 2000000,
-      "templates": ["[항공권] {location} {adj} 왕복 항공권 ({airline})", "{location} {hotel} {room} {count}박 패키지"],
+      "price_max": 1500000,
+      "order_frequency": 6,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [25, 45, 20, 10],
+      "templates": ["[항공권] {location} {adj} 왕복 항공권 ({brand})",
+        "{brand} {location} {adj} 특가 항공권"
+      ],
       "keywords": {
-        "location": ["제주", "오사카", "다낭", "방콕", "후쿠오카"],
-        "airline": ["대한항공", "제주항공", "티웨이", "진에어"],
-        "hotel": ["신라호텔", "하얏트", "롯데호텔", "풀빌라"],
-        "room": ["오션뷰", "스위트룸", "디럭스룸"],
-        "adj": ["직항", "특가", "얼리버드", "땡처리"],
-        "count": ["1", "2", "3"],
-        "suffix": ["즉시확정", "조식포함"]
+        "brand": ["대한항공","아시아나","제주항공","티웨이","진에어","에어부산","이스타항공"],
+        "location": ["제주","오사카","다낭","방콕","후쿠오카","도쿄","싱가포르"],
+        "adj": ["직항","특가","얼리버드","땡처리","왕복"],
+        "suffix": ["즉시확정","마일리지적립","수하물포함"]
       }
     },
-    "여행_티켓/패스": {
+    "숙박": {
+      "price_min": 80000,
+      "price_max": 2000000,
+      "order_frequency": 6,
+      "quantity_options": [1, 2, 3],
+      "quantity_weights": [50, 35, 15],
+      "templates": ["{location} {brand} {room} {count}박 패키지","[호텔] {brand} {location} {adj} ({room})"
+      ],
+      "keywords": {
+        "brand": ["신라호텔","롯데호텔","하얏트","메리어트","힐튼","인터컨티넨탈","아코르"],
+        "location": ["제주","서울","부산","강원","경주"],
+        "room": ["오션뷰","스위트룸","디럭스룸","패밀리룸"],
+        "adj": ["특가","얼리버드","시즌특가","프리미엄"],
+        "count": ["1","2","3"],
+        "suffix": ["즉시확정","조식포함","무료취소"]
+      }
+    },
+    "티켓/패스": {
       "price_min": 10000,
       "price_max": 100000,
-      "templates": ["[입장권] {location} {activity} {people}인권 {suffix}", "{location} {activity} 자유이용권 ({opt})"],
+      "order_frequency": 8,
+      "quantity_options": [1, 2, 3, 4],
+      "quantity_weights": [20, 35, 30, 15],
+      "templates": ["[입장권] {brand} {activity} {people}인권 {suffix}",
+        "{brand} {activity} 자유이용권 ({opt})"
+      ],
       "keywords": {
-        "location": ["제주", "서울", "부산", "용인"],
-        "activity": ["아쿠아리움", "테마파크", "워터파크", "사파리", "루지"],
-        "people": ["1", "2", "소인"],
-        "opt": ["Q-Pass", "식사권포함", "오후권"],
-        "suffix": ["모바일발송", "당일사용가능", "무료취소"]
+        "brand": ["에버랜드","롯데월드","캐리비안베이","아쿠아플라넷","오션월드","레고랜드","서울랜드"],
+        "location": ["제주","서울","부산","용인"],
+        "activity": ["아쿠아리움","워터파크","사파리","루지","스카이다이빙"],
+        "people": ["1","2","소인"],
+        "opt": ["Q-Pass","식사권포함","오후권"],
+        "suffix": ["모바일발송","당일사용가능","무료취소"]
       }
     }
   }

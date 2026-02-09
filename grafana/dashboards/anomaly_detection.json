@@ -1,0 +1,1010 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "panels": [
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 100,
+            "panels": [],
+            "title": "🚨 실시간 이상 지표",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 50000
+                            },
+                            {
+                                "color": "red",
+                                "value": 100000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 0,
+                "y": 1
+            },
+            "id": 1,
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  ROUND(SUM(total_amount) / NULLIF(COUNT(DISTINCT user_id), 0)) as \"유저당매출\"\nFROM orders \nWHERE created_at >= NOW() - INTERVAL '1 hour';",
+                    "refId": "A"
+                }
+            ],
+            "title": "⚠️ 유저당 평균 매출",
+            "description": "10만원 이상이면 이상 징후",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 10
+                            },
+                            {
+                                "color": "red",
+                                "value": 30
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 6,
+                "y": 1
+            },
+            "id": 2,
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "max"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  MAX(cnt) as \"최대분당주문\"\nFROM (\n  SELECT COUNT(*) as cnt\n  FROM orders\n  WHERE created_at >= NOW() - INTERVAL '1 hour'\n  GROUP BY date_trunc('minute', created_at)\n) t;",
+                    "refId": "A"
+                }
+            ],
+            "title": "⚠️ 분당 최대 주문수",
+            "description": "30건 이상이면 이상 급증",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1000000
+                            },
+                            {
+                                "color": "red",
+                                "value": 5000000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 12,
+                "y": 1
+            },
+            "id": 3,
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "max"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT MAX(total_amount) as \"최대주문금액\" FROM orders WHERE created_at >= NOW() - INTERVAL '1 hour';",
+                    "refId": "A"
+                }
+            ],
+            "title": "⚠️ 최대 단일 주문금액",
+            "description": "500만원 이상이면 이상 거래",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 5
+                            },
+                            {
+                                "color": "red",
+                                "value": 10
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 18,
+                "y": 1
+            },
+            "id": 4,
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "max"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT MAX(total_count) as \"최다구매유저\" FROM realtime_user_stats;",
+                    "refId": "A"
+                }
+            ],
+            "title": "⚠️ 유저 최대 구매횟수",
+            "description": "10회 이상이면 봇 의심",
+            "type": "stat"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 6
+            },
+            "id": 101,
+            "panels": [],
+            "title": "📊 시간당 이상 탐지",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 1000000
+                            },
+                            {
+                                "color": "red",
+                                "value": 10000000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "상태"
+                        },
+                        "properties": [
+                            {
+                                "id": "custom.width",
+                                "value": 250
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 24,
+                "x": 0,
+                "y": 7
+            },
+            "id": 5,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "시간"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  date_trunc('hour', created_at) as \"시간\",\n  COUNT(DISTINCT user_id) as \"유저수\",\n  COUNT(*) as \"주문수\",\n  SUM(total_amount) as \"매출\",\n  ROUND(SUM(total_amount) / NULLIF(COUNT(DISTINCT user_id), 0)) as \"유저당매출\",\n  CASE \n    WHEN SUM(total_amount) / NULLIF(COUNT(DISTINCT user_id), 0) > 10000000 \n    THEN '🔴 비정상 (유저당 매출 1천만 초과)'\n    WHEN COUNT(*) / NULLIF(COUNT(DISTINCT user_id), 0) > 50\n    THEN '🟡 주의 (유저당 주문 50건 초과)'\n    ELSE '✅ 정상'\n  END as \"상태\"\nFROM orders\nWHERE created_at >= NOW() - INTERVAL '24 hours'\nGROUP BY 1\nORDER BY 1 DESC;",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔍 시간별 유저당 매출 이상 탐지",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 0.6,
+                        "drawStyle": "line",
+                        "fillOpacity": 10,
+                        "gradientMode": "opacity",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 2,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "line+area"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 10000000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 9,
+                "w": 12,
+                "x": 0,
+                "y": 17
+            },
+            "id": 6,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "max"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  date_trunc('hour', created_at) as time,\n  ROUND(SUM(total_amount) / NULLIF(COUNT(DISTINCT user_id), 0)) as \"유저당매출\"\nFROM orders\nWHERE created_at >= NOW() - INTERVAL '24 hours'\nGROUP BY 1\nORDER BY 1;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📈 유저당 매출 추이 (임계선: 1천만원)",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 0.6,
+                        "drawStyle": "bars",
+                        "fillOpacity": 80,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "line"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 100
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 9,
+                "w": 12,
+                "x": 12,
+                "y": 17
+            },
+            "id": 7,
+            "options": {
+                "legend": {
+                    "calcs": [
+                        "mean",
+                        "max"
+                    ],
+                    "displayMode": "table",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  date_trunc('minute', created_at) as time,\n  COUNT(*) as \"분당주문\"\nFROM orders\nWHERE created_at >= NOW() - INTERVAL '1 hour'\nGROUP BY 1\nORDER BY 1;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📊 분당 주문 급증 탐지 (임계선: 100건)",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 26
+            },
+            "id": 102,
+            "panels": [],
+            "title": "👤 의심 유저 탐지",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 50
+                            },
+                            {
+                                "color": "red",
+                                "value": 100
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 0,
+                "y": 27
+            },
+            "id": 8,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "구매횟수"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  user_id as \"유저ID\",\n  total_count as \"구매횟수\",\n  total_spent as \"총지출\",\n  ROUND(avg_ticket) as \"평균객단가\",\n  CASE \n    WHEN total_count > 100 THEN '🔴 봇 의심'\n    WHEN avg_ticket > 5000000 THEN '🟡 고액 구매자'\n    WHEN total_count > 50 THEN '🟡 헤비유저'\n    ELSE '✅ 일반'\n  END as \"상태\"\nFROM realtime_user_stats\nWHERE total_count > 10 OR avg_ticket > 1000000\nORDER BY total_count DESC\nLIMIT 30;",
+                    "refId": "A"
+                }
+            ],
+            "title": "🔍 이상 구매 패턴 유저",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 50000000
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 12,
+                "y": 27
+            },
+            "id": 9,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "금액"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  order_id as \"주문ID\",\n  user_id as \"유저ID\",\n  total_amount as \"금액\",\n  quantity as \"수량\",\n  category as \"카테고리\",\n  payment_method as \"결제수단\",\n  created_at as \"시간\"\nFROM orders\nWHERE total_amount > 10000000\n  AND created_at >= NOW() - INTERVAL '24 hours'\nORDER BY total_amount DESC\nLIMIT 20;",
+                    "refId": "A"
+                }
+            ],
+            "title": "💰 고액 거래 목록 (1천만원 이상)",
+            "type": "table"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 37
+            },
+            "id": 103,
+            "panels": [],
+            "title": "📦 카테고리 이상 탐지",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 30
+                            },
+                            {
+                                "color": "red",
+                                "value": 50
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "비율(%)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "percent"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 0,
+                "y": 38
+            },
+            "id": 10,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "매출"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH category_stats AS (\n  SELECT \n    category,\n    SUM(total_revenue) as revenue,\n    SUM(total_orders) as orders\n  FROM realtime_category_stats\n  WHERE window_start >= NOW() - INTERVAL '1 hour'\n  GROUP BY category\n),\ntotal AS (\n  SELECT SUM(revenue) as total_revenue FROM category_stats\n)\nSELECT \n  c.category as \"카테고리\",\n  c.revenue as \"매출\",\n  c.orders as \"주문수\",\n  ROUND(c.revenue * 100.0 / NULLIF(t.total_revenue, 0), 1) as \"비율(%)\",\n  CASE \n    WHEN c.revenue * 100.0 / NULLIF(t.total_revenue, 0) > 50 THEN '🔴 독점 의심'\n    WHEN c.revenue * 100.0 / NULLIF(t.total_revenue, 0) > 30 THEN '🟡 집중'\n    ELSE '✅ 정상'\n  END as \"상태\"\nFROM category_stats c, total t\nORDER BY c.revenue DESC;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📦 카테고리별 매출 집중도",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 30
+                            },
+                            {
+                                "color": "red",
+                                "value": 50
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "비율(%)"
+                        },
+                        "properties": [
+                            {
+                                "id": "unit",
+                                "value": "percent"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 10,
+                "w": 12,
+                "x": 12,
+                "y": 38
+            },
+            "id": 11,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                    {
+                        "desc": true,
+                        "displayName": "매출"
+                    }
+                ]
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "WITH payment_stats AS (\n  SELECT \n    payment_method,\n    SUM(revenue) as revenue,\n    SUM(count) as cnt\n  FROM realtime_payment_stats\n  WHERE window_start >= NOW() - INTERVAL '1 hour'\n  GROUP BY payment_method\n),\ntotal AS (\n  SELECT SUM(revenue) as total_revenue FROM payment_stats\n)\nSELECT \n  p.payment_method as \"결제수단\",\n  p.revenue as \"매출\",\n  p.cnt as \"건수\",\n  ROUND(p.revenue * 100.0 / NULLIF(t.total_revenue, 0), 1) as \"비율(%)\",\n  CASE \n    WHEN p.revenue * 100.0 / NULLIF(t.total_revenue, 0) > 50 THEN '🟡 집중'\n    ELSE '✅ 정상'\n  END as \"상태\"\nFROM payment_stats p, total t\nORDER BY p.revenue DESC;",
+                    "refId": "A"
+                }
+            ],
+            "title": "💳 결제수단별 집중도",
+            "type": "table"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 48
+            },
+            "id": 104,
+            "panels": [],
+            "title": "📋 데이터 품질 진단",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 49
+            },
+            "id": 12,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  '총 유저수' as \"항목\", COUNT(*)::text as \"값\", '명' as \"단위\" FROM users\nUNION ALL\nSELECT '총 상품수', COUNT(*)::text, '개' FROM products\nUNION ALL\nSELECT '총 주문수', COUNT(*)::text, '건' FROM orders\nUNION ALL  \nSELECT '평균 주문금액', ROUND(AVG(total_amount))::text, '원' FROM orders\nUNION ALL\nSELECT '최대 주문금액', MAX(total_amount)::text, '원' FROM orders\nUNION ALL\nSELECT '최소 주문금액', MIN(total_amount)::text, '원' FROM orders\nUNION ALL\nSELECT '유저당 평균 주문수', ROUND(COUNT(*)::numeric / NULLIF((SELECT COUNT(*) FROM users), 0), 2)::text, '건' FROM orders\nUNION ALL\nSELECT '유저당 평균 매출', ROUND(SUM(total_amount)::numeric / NULLIF((SELECT COUNT(*) FROM users), 0))::text, '원' FROM orders;",
+                    "refId": "A"
+                }
+            ],
+            "title": "📋 전체 데이터 요약",
+            "type": "table"
+        },
+        {
+            "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "sesac_postgres_uid"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "blue",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "unit": "locale"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 49
+            },
+            "id": 13,
+            "options": {
+                "cellHeight": "sm",
+                "showHeader": true
+            },
+            "pluginVersion": "12.3.2",
+            "targets": [
+                {
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT \n  '최근 1시간 주문수' as \"항목\", \n  COUNT(*)::text as \"값\",\n  '건' as \"단위\"\nFROM orders WHERE created_at >= NOW() - INTERVAL '1 hour'\nUNION ALL\nSELECT \n  '최근 1시간 매출', \n  SUM(total_amount)::text,\n  '원'\nFROM orders WHERE created_at >= NOW() - INTERVAL '1 hour'\nUNION ALL\nSELECT \n  '최근 1시간 활성유저', \n  COUNT(DISTINCT user_id)::text,\n  '명'\nFROM orders WHERE created_at >= NOW() - INTERVAL '1 hour'\nUNION ALL\nSELECT \n  '최근 1시간 신규유저', \n  COUNT(*)::text,\n  '명'\nFROM users WHERE created_datetime >= NOW() - INTERVAL '1 hour'\nUNION ALL\nSELECT \n  '최근 1시간 신규상품', \n  COUNT(*)::text,\n  '개'\nFROM products WHERE created_datetime >= NOW() - INTERVAL '1 hour';",
+                    "refId": "A"
+                }
+            ],
+            "title": "📊 최근 1시간 데이터 요약",
+            "type": "table"
+        }
+    ],
+    "refresh": "5s",
+    "schemaVersion": 39,
+    "tags": [
+        "anomaly",
+        "detection",
+        "alert"
+    ],
+    "templating": {
+        "list": []
+    },
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "Asia/Seoul",
+    "title": "🚨 이상 탐지 대시보드",
+    "uid": "anomaly-detection",
+    "version": 1,
+    "weekStart": ""
+}

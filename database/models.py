@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from datetime import datetime
 from .database import Base
 import uuid
+import random
 
 class Product(Base):
     __tablename__ = "products"
@@ -26,7 +27,10 @@ class Product(Base):
     is_best = Column(String(1), default="N", comment="베스트 상품 여부")
     
     created_at = Column(DateTime, default=datetime.now, comment="등록일")
-    last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
+    order_count = Column(Integer, default=0, index=True, comment="누적 판매 수 (주문 발생 시 +1)")
+
+    created_datetime = Column(DateTime, server_default=func.now(), nullable=False, comment="실제 추가되는 시각")
+    updated_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False, comment="실제 수정되는 시각")
 
     orders = relationship("Order", back_populates="product")
 
@@ -46,15 +50,19 @@ class User(Base):
     address_district = Column(String(100), nullable=True, index=True, comment="주소 (구 단위)") # 지역별 분석용 인덱스
 
     email = Column(String(100), nullable=True, comment="이메일")
-    grade = Column(String(20), nullable=True, comment="멤버십 등급")
-    
+    grade = Column(String(20), nullable=False, default="BRONZE", comment="멤버십 등급")
+
     # 유저 활동 분석용
     status = Column(String(20), default="ACTIVE", comment="활동/휴면 상태")
     last_login_at = Column(DateTime, nullable=True, comment="마지막 로그인 일시")
     marketing_agree = Column(String(5), default="false", comment="마케팅 동의 여부")
-    
+
     created_at = Column(DateTime, default=datetime.now, comment="가입일")
-    last_cached_at = Column(DateTime, nullable=True, index=True, comment="마지막 캐시 적재 시간 (Aging용)")
+    last_ordered_at = Column(DateTime, nullable=True, index=True, comment="마지막 주문 시간")
+    random_seed = Column(Float, nullable=False, default=lambda: random.random(), index=True, comment="캐시 랜덤 선택용 시드 (0.0~1.0)")
+    
+    created_datetime = Column(DateTime, server_default=func.now(), nullable=False, comment="실제 추가되는 시각")
+    updated_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False, comment="실제 수정되는 시각")
 
     orders = relationship("Order", back_populates="user")
 
@@ -88,6 +96,9 @@ class Order(Base):
 
     user = relationship("User", back_populates="orders")
     product = relationship("Product", back_populates="orders")
+
+    created_datetime = Column(DateTime, server_default=func.now(), nullable=False, comment="실제 추가되는 시각")
+    updated_datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False, comment="실제 수정되는 시각")
 
     def __repr__(self):
         return f"<Order(id={self.order_id}, amount={self.total_amount})>"

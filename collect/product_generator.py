@@ -1,6 +1,8 @@
 import json
 import os
 import random
+import uuid
+from datetime import datetime
 from faker import Faker
 
 fake = Faker('ko_KR')
@@ -44,10 +46,22 @@ class ProductGenerator:
         except KeyError:
             name = template
             
-        # 접두사 추가 (30% 확률)
-        if random.random() < 0.3:
-            prefix = random.choice(self.common_prefixes)
-            name = f"{prefix} {name}"
+        # 접두사 추가 (30% 확률) - 특정 카테고리 제외
+        # 여행/티켓/스포츠 카테고리: prefix 전체 제외
+        no_prefix_categories = ["항공", "숙박", "티켓/패스", "골프", "캠핑"]
+        # 가전/IT: [1+1] 제외 (냉장고 1+1 등 이상함)
+        limited_prefix_categories = ["생활가전", "IT/게이밍"]
+        excluded_prefixes_for_limited = ["[1+1]"]
+        
+        if category not in no_prefix_categories and random.random() < 0.3:
+            if category in limited_prefix_categories:
+                valid_prefixes = [p for p in self.common_prefixes if p not in excluded_prefixes_for_limited]
+            else:
+                valid_prefixes = self.common_prefixes
+            
+            if valid_prefixes:
+                prefix = random.choice(valid_prefixes)
+                name = f"{prefix} {name}"
             
         return name, context.get('brand', 'Unknown')
 
@@ -60,6 +74,7 @@ class ProductGenerator:
         rule = self.rules[category_name]
         
         name, brand = self.generate_name(category_name)
+
         
         # 가격 결정 로직 (브랜드 등급 반영)
         # JSON에는 없지만 로직을 위해 코드 내에 유지
@@ -69,8 +84,9 @@ class ProductGenerator:
         price_min = rule.get('price_min', 10000)
         price_max = rule.get('price_max', 100000)
         
-        # 기본 랜덤 가격에 브랜드 가중치 적용 및 100원 단위 절사
-        raw_price = random.randint(price_min, price_max) * brand_multiplier
+        # 베타 분포로 저가 치우침 가격 생성 (대부분 저가, 고가는 드묾)
+        beta_value = random.betavariate(2, 5)
+        raw_price = (price_min + beta_value * (price_max - price_min)) * brand_multiplier
         price = int(max(price_min, min(raw_price, price_max * 1.5)) // 100) * 100 
         
         # 할인 로직 (40% 확률로 할인 적용)
@@ -79,6 +95,10 @@ class ProductGenerator:
         else:
             org_price = price
             
+        # 1/100 확률로 가격 입력 오류 시뮬레이션 (판매가 > 정가)
+        if random.random() < 0.01:
+            org_price = int(price * random.uniform(0.5, 0.8) // 100) * 100
+
         discount_rate = (org_price - price) / org_price if org_price > price else 0
         
         # 데이터의 입체감을 위한 평점 및 리뷰 데이터 시나리오
@@ -86,7 +106,7 @@ class ProductGenerator:
         review_count = random.randint(50, 2500) if brand in premium_brands else random.randint(0, 500)
 
         return {
-            "product_id": f"P{fake.unique.random_number(digits=8)}",
+            "product_id": f"P{uuid.uuid4().hex[:8].upper()}",
             "name": name,
             "category": category_name,
             "price": price,
@@ -98,7 +118,10 @@ class ProductGenerator:
             "discount_rate": discount_rate,
             "rating": rating,
             "review_count": review_count,
-            "is_best": "Y" if review_count > 1000 and rating > 4.5 else "N"
+            "is_best": "Y" if review_count > 1000 and rating > 4.5 else "N",
+            "order_count": 0,
+            "created_datetime": datetime.now(),
+            "updated_datetime": datetime.now()
         }
 
     def generate_batch(self, count=100):
